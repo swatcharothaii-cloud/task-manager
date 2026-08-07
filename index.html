@@ -48,44 +48,45 @@
   /* ---------- Header ---------- */
   header{
     background:var(--surface);border-bottom:1px solid var(--border);
-    padding:14px 20px;display:flex;align-items:center;gap:16px;flex-wrap:wrap;
-    position:sticky;top:0;z-index:30;
+    padding:0 28px;position:sticky;top:0;z-index:30;
   }
-  .brand{display:flex;align-items:center;gap:10px;font-weight:700;font-size:17px;margin-right:auto;}
+  .header-inner{max-width:1680px;margin:0 auto;padding:16px 0;display:flex;align-items:center;gap:16px;flex-wrap:wrap;}
+  .brand{display:flex;align-items:center;gap:10px;font-weight:700;font-size:18px;margin-right:auto;}
   .brand .dot{width:10px;height:10px;border-radius:3px;background:var(--primary);display:inline-block;}
-  .header-actions{display:flex;align-items:center;gap:8px;flex-wrap:wrap;}
-  .user-chip{font-size:12.5px;color:var(--text-muted);padding:6px 10px;background:var(--gray-soft);border-radius:100px;white-space:nowrap;}
+  .header-actions{display:flex;align-items:center;gap:9px;flex-wrap:wrap;}
+  .user-chip{font-size:13px;color:var(--text-muted);padding:7px 12px;background:var(--gray-soft);border-radius:100px;white-space:nowrap;}
 
-  .btn{border:1px solid var(--border);background:var(--surface);color:var(--text);padding:8px 14px;border-radius:8px;font-size:13.5px;font-weight:600;display:inline-flex;align-items:center;gap:6px;transition:background .15s,border-color .15s;}
+  .btn{border:1px solid var(--border);background:var(--surface);color:var(--text);padding:9px 16px;border-radius:8px;font-size:14px;font-weight:600;display:inline-flex;align-items:center;gap:6px;transition:background .15s,border-color .15s;}
   .btn:hover{background:var(--gray-soft);}
   .btn-primary{background:var(--primary);border-color:var(--primary);color:#fff;}
   .btn-primary:hover{background:var(--primary-dark);}
-  .btn-icon{padding:8px;width:36px;height:36px;justify-content:center;position:relative;}
+  .btn-icon{padding:9px;width:39px;height:39px;justify-content:center;position:relative;}
   .btn-danger{color:var(--red);}
-  .btn-sm{padding:5px 10px;font-size:12.5px;border-radius:6px;}
+  .btn-sm{padding:6px 12px;font-size:13px;border-radius:6px;}
   .btn:disabled{opacity:.55;cursor:not-allowed;}
 
   .badge-count{position:absolute;top:-4px;right:-4px;background:var(--red);color:#fff;font-size:10px;font-weight:700;min-width:16px;height:16px;border-radius:8px;display:flex;align-items:center;justify-content:center;padding:0 4px;}
 
   /* ---------- Tabs / Filters ---------- */
-  .toolbar{background:var(--surface);border-bottom:1px solid var(--border);padding:10px 20px;display:flex;gap:16px;align-items:center;flex-wrap:wrap;position:sticky;top:61px;z-index:20;}
+  .toolbar{background:var(--surface);border-bottom:1px solid var(--border);padding:0 28px;position:sticky;top:75px;z-index:20;}
+  .toolbar-inner{max-width:1680px;margin:0 auto;padding:12px 0;display:flex;gap:16px;align-items:center;flex-wrap:wrap;}
   .tabs{display:flex;gap:4px;background:var(--gray-soft);padding:4px;border-radius:9px;flex-wrap:wrap;}
-  .tab{padding:7px 14px;border-radius:6px;font-size:13.5px;font-weight:600;color:var(--text-muted);border:none;background:transparent;}
+  .tab{padding:8px 16px;border-radius:6px;font-size:14px;font-weight:600;color:var(--text-muted);border:none;background:transparent;}
   .tab.active{background:var(--surface);color:var(--primary);box-shadow:var(--shadow);}
   .tab-badge{background:var(--red);color:#fff;font-size:10px;font-weight:700;border-radius:100px;padding:1px 6px;margin-left:4px;}
-  .filters{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-left:auto;}
-  .filters input, .filters select{border:1px solid var(--border);border-radius:7px;padding:7px 10px;font-size:13px;color:var(--text);background:var(--surface);}
-  .filters input[type=text]{min-width:180px;}
+  .filters{display:flex;gap:9px;align-items:center;flex-wrap:wrap;margin-left:auto;}
+  .filters input, .filters select{border:1px solid var(--border);border-radius:7px;padding:8px 12px;font-size:14px;color:var(--text);background:var(--surface);}
+  .filters input[type=text]{min-width:200px;}
 
-  main{padding:20px;max-width:1400px;margin:0 auto;}
+  main{padding:24px 28px;max-width:1680px;margin:0 auto;}
   .view{display:none;}
   .view.active{display:block;}
 
   /* ---------- Table View ---------- */
   .table-wrap{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);overflow-x:auto;box-shadow:var(--shadow);}
-  table{width:100%;border-collapse:collapse;font-size:13.5px;min-width:1080px;}
-  thead th{text-align:left;padding:11px 14px;background:#fafbfc;border-bottom:1px solid var(--border);color:var(--text-muted);font-weight:600;font-size:12.5px;text-transform:uppercase;letter-spacing:.03em;white-space:nowrap;}
-  tbody td{padding:11px 14px;border-bottom:1px solid var(--border);vertical-align:middle;}
+  table{width:100%;border-collapse:collapse;font-size:14.5px;min-width:1080px;}
+  thead th{text-align:left;padding:13px 16px;background:#fafbfc;border-bottom:1px solid var(--border);color:var(--text-muted);font-weight:600;font-size:13px;text-transform:uppercase;letter-spacing:.03em;white-space:nowrap;}
+  tbody td{padding:13px 16px;border-bottom:1px solid var(--border);vertical-align:middle;}
   tbody tr:last-child td{border-bottom:none;}
   tbody tr:hover{background:#fafbfe;}
   .task-name-cell{font-weight:600;}
@@ -206,7 +207,7 @@
   .gcal-link:hover{text-decoration:underline;}
 
   /* ---------- Notification panel ---------- */
-  .notif-panel{position:absolute;top:52px;right:20px;width:340px;background:var(--surface);border:1px solid var(--border);border-radius:12px;box-shadow:var(--shadow-lg);z-index:110;display:none;max-height:420px;overflow-y:auto;}
+  .notif-panel{position:absolute;top:76px;right:28px;width:340px;background:var(--surface);border:1px solid var(--border);border-radius:12px;box-shadow:var(--shadow-lg);z-index:110;display:none;max-height:420px;overflow-y:auto;}
   .notif-panel.show{display:block;}
   .notif-panel-head{padding:12px 16px;border-bottom:1px solid var(--border);font-weight:700;font-size:13.5px;display:flex;justify-content:space-between;align-items:center;}
   .notif-item{padding:11px 16px;border-bottom:1px solid var(--border);font-size:12.5px;cursor:pointer;}
@@ -260,18 +261,20 @@
 <div id="appRoot" style="display:none;">
 
 <header>
-  <div class="brand"><span class="dot"></span>Task Manager</div>
-  <div class="header-actions">
-    <span class="user-chip" id="userChip"></span>
-    <button class="btn btn-primary" id="btnAdd">+ เพิ่มงาน</button>
-    <button class="btn btn-icon" id="btnNotif" title="การแจ้งเตือน">
-      🔔<span class="badge-count" id="notifCount" style="display:none;">0</span>
-    </button>
-    <button class="btn btn-sm" id="btnExport" title="ส่งออกงานของฉันเป็นไฟล์ JSON">⬇ Export</button>
-    <button class="btn btn-sm" id="btnImportTrigger" title="นำเข้างานจากไฟล์ JSON">⬆ Import</button>
-    <input type="file" id="fileImport" accept="application/json">
-    <button class="btn btn-sm btn-danger" id="btnClear" title="ลบงานของฉันทั้งหมด">ล้างข้อมูล</button>
-    <button class="btn btn-sm" id="btnLogout">ออกจากระบบ</button>
+  <div class="header-inner">
+    <div class="brand"><span class="dot"></span>Task Manager</div>
+    <div class="header-actions">
+      <span class="user-chip" id="userChip"></span>
+      <button class="btn btn-primary" id="btnAdd">+ เพิ่มงาน</button>
+      <button class="btn btn-icon" id="btnNotif" title="การแจ้งเตือน">
+        🔔<span class="badge-count" id="notifCount" style="display:none;">0</span>
+      </button>
+      <button class="btn btn-sm" id="btnExport" title="ส่งออกงานของฉันเป็นไฟล์ JSON">⬇ Export</button>
+      <button class="btn btn-sm" id="btnImportTrigger" title="นำเข้างานจากไฟล์ JSON">⬆ Import</button>
+      <input type="file" id="fileImport" accept="application/json">
+      <button class="btn btn-sm btn-danger" id="btnClear" title="ลบงานของฉันทั้งหมด">ล้างข้อมูล</button>
+      <button class="btn btn-sm" id="btnLogout">ออกจากระบบ</button>
+    </div>
   </div>
 </header>
 
@@ -281,18 +284,20 @@
 </div>
 
 <div class="toolbar">
-  <div class="tabs" id="tabs">
-    <button class="tab active" data-view="table">📋 Table</button>
-    <button class="tab" data-view="kanban">🗂 Kanban</button>
-    <button class="tab" data-view="calendar">📅 Calendar</button>
-    <button class="tab" data-view="gantt">📊 Gantt</button>
-    <button class="tab" data-view="approvals">✅ อนุมัติ<span class="tab-badge" id="approvalTabBadge" style="display:none;">0</span></button>
-  </div>
-  <div class="filters" id="filtersBar">
-    <input type="text" id="fSearch" placeholder="🔍 ค้นหาชื่องาน / ผู้รับผิดชอบ...">
-    <select id="fStatus"><option value="">ทุกสถานะ</option><option value="todo">To Do</option><option value="doing">Doing</option><option value="done">Done</option></select>
-    <select id="fPriority"><option value="">ทุกความสำคัญ</option><option value="high">🔴 ด่วนมาก</option><option value="medium">🟠 ด่วน</option><option value="low">🟢 ตามกำหนด</option></select>
-    <select id="fProject"><option value="">ทุกโปรเจกต์</option></select>
+  <div class="toolbar-inner">
+    <div class="tabs" id="tabs">
+      <button class="tab active" data-view="table">📋 Table</button>
+      <button class="tab" data-view="kanban">🗂 Kanban</button>
+      <button class="tab" data-view="calendar">📅 Calendar</button>
+      <button class="tab" data-view="gantt">📊 Gantt</button>
+      <button class="tab" data-view="approvals">✅ อนุมัติ<span class="tab-badge" id="approvalTabBadge" style="display:none;">0</span></button>
+    </div>
+    <div class="filters" id="filtersBar">
+      <input type="text" id="fSearch" placeholder="🔍 ค้นหาชื่องาน / ผู้รับผิดชอบ...">
+      <select id="fStatus"><option value="">ทุกสถานะ</option><option value="todo">To Do</option><option value="doing">Doing</option><option value="done">Done</option></select>
+      <select id="fPriority"><option value="">ทุกความสำคัญ</option><option value="high">🔴 ด่วนมาก</option><option value="medium">🟠 ด่วน</option><option value="low">🟢 ตามกำหนด</option></select>
+      <select id="fProject"><option value="">ทุกโปรเจกต์</option></select>
+    </div>
   </div>
 </div>
 
