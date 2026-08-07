@@ -90,6 +90,13 @@
   tbody tr:hover{background:#fafbfe;}
   .task-name-cell{font-weight:600;}
   .remark-cell{color:var(--text-muted);max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+  .thumb-cell{width:48px;}
+  .task-thumb{width:36px;height:36px;border-radius:8px;object-fit:cover;cursor:zoom-in;border:1px solid var(--border);display:block;}
+  .task-thumb-empty{width:36px;height:36px;border-radius:8px;background:var(--gray-soft);color:var(--text-muted);display:flex;align-items:center;justify-content:center;font-size:14px;}
+  .img-upload-row{display:flex;align-items:center;gap:12px;flex-wrap:wrap;}
+  .img-preview-box{position:relative;}
+  #imagePreview{max-width:160px;max-height:120px;border-radius:8px;border:1px solid var(--border);display:block;cursor:zoom-in;}
+  #lightboxImg{max-width:90vw;max-height:90vh;border-radius:10px;}
 
   .pill{display:inline-flex;align-items:center;gap:5px;padding:3px 10px;border-radius:100px;font-size:12px;font-weight:700;white-space:nowrap;}
   .pill-todo{background:var(--gray-soft);color:var(--gray);}
@@ -97,7 +104,7 @@
   .pill-done{background:var(--green-soft);color:var(--green);}
   .pill-low{background:var(--green-soft);color:var(--green);}
   .pill-medium{background:var(--amber-soft);color:var(--amber);}
-  .pill-high{background:var(--red-soft);color:var(--red);}
+  .pill-high{background:var(--red-soft);color:var(--red);font-weight:800;}
   .pill-overdue{background:var(--red-soft);color:var(--red);}
   .pill-pending{background:var(--amber-soft);color:var(--amber);}
   .pill-approved{background:var(--green-soft);color:var(--green);}
@@ -284,7 +291,7 @@
   <div class="filters" id="filtersBar">
     <input type="text" id="fSearch" placeholder="🔍 ค้นหาชื่องาน / ผู้รับผิดชอบ...">
     <select id="fStatus"><option value="">ทุกสถานะ</option><option value="todo">To Do</option><option value="doing">Doing</option><option value="done">Done</option></select>
-    <select id="fPriority"><option value="">ทุกความสำคัญ</option><option value="high">สูง</option><option value="medium">กลาง</option><option value="low">ต่ำ</option></select>
+    <select id="fPriority"><option value="">ทุกความสำคัญ</option><option value="high">🔴 ด่วนมาก</option><option value="medium">🟠 ด่วน</option><option value="low">🟢 ตามกำหนด</option></select>
     <select id="fProject"><option value="">ทุกโปรเจกต์</option></select>
   </div>
 </div>
@@ -297,7 +304,7 @@
         <thead>
           <tr>
             <th>Task Name</th><th>Assignee</th><th>Status</th><th>Project / Site</th>
-            <th>Due Date</th><th>Priority</th><th>Remark</th><th>Approval</th><th></th>
+            <th>รูป</th><th>Due Date</th><th>Priority</th><th>Remark</th><th>Approval</th><th></th>
           </tr>
         </thead>
         <tbody id="tableBody"></tbody>
@@ -378,9 +385,9 @@
         <div class="form-group">
           <label>ความสำคัญ (Priority)</label>
           <select id="fPriorityInput">
-            <option value="low">ต่ำ</option>
-            <option value="medium" selected>กลาง</option>
-            <option value="high">สูง</option>
+            <option value="low">🟢 ตามกำหนด</option>
+            <option value="medium" selected>🟠 ด่วน</option>
+            <option value="high">🔴 ด่วนมาก</option>
           </select>
         </div>
         <div class="form-group">
@@ -390,6 +397,16 @@
         <div class="form-group full">
           <label>Remark</label>
           <textarea id="fRemark" placeholder="หมายเหตุเพิ่มเติม..."></textarea>
+        </div>
+        <div class="form-group full">
+          <label>รูปงาน (Photo)</label>
+          <div class="img-upload-row">
+            <input type="file" id="fImageFile" accept="image/*">
+            <div class="img-preview-box" id="imagePreviewWrap" style="display:none;">
+              <img id="imagePreview" alt="รูปงาน">
+            </div>
+            <button type="button" class="btn btn-sm" id="btnRemoveImage" style="display:none;">ลบรูป</button>
+          </div>
         </div>
         <div class="form-group full" id="gcalRow" style="display:none;">
           <a href="#" target="_blank" rel="noopener" class="gcal-link" id="gcalLink">📅 เพิ่มลง Google Calendar</a>
@@ -418,6 +435,11 @@
       </div>
     </div>
   </div>
+</div>
+
+<!-- IMAGE LIGHTBOX -->
+<div class="overlay" id="lightboxOverlay" style="z-index:200;align-items:center;">
+  <img id="lightboxImg" src="" alt="รูปงาน (ขยาย)">
 </div>
 
 </div><!-- /appRoot -->
@@ -458,9 +480,10 @@
   var calYear, calMonth;
   var filters = { search:'', status:'', priority:'', project:'' };
   var appUIInitialized = false;
+  var currentImageData = ''; // base64 data URL of the photo attached to the task open in the modal
 
   var STATUS_LABEL = { todo:'To Do', doing:'Doing', done:'Done' };
-  var PRIORITY_LABEL = { low:'ต่ำ', medium:'กลาง', high:'สูง' };
+  var PRIORITY_LABEL = { low:'ตามกำหนด', medium:'ด่วน', high:'ด่วนมาก' };
   var APPROVAL_LABEL = { none:'—', pending:'รออนุมัติ', approved:'อนุมัติแล้ว', rejected:'ไม่อนุมัติ' };
 
   // ---------- Utils ----------
@@ -528,6 +551,52 @@
     return 'https://www.google.com/calendar/render?action=TEMPLATE&text='+text+'&dates='+startFmt+'/'+endExclusive+'&details='+details+'&location='+location;
   }
 
+  // ---------- Task photo helpers ----------
+  function resizeImageToDataUrl(srcDataUrl, maxDim, quality, cb){
+    var img = new Image();
+    img.onload = function(){
+      var w = img.width, h = img.height;
+      if(w>maxDim || h>maxDim){
+        if(w>=h){ h = Math.round(h*maxDim/w); w = maxDim; }
+        else { w = Math.round(w*maxDim/h); h = maxDim; }
+      }
+      var canvas = document.createElement('canvas');
+      canvas.width = w; canvas.height = h;
+      var ctx = canvas.getContext('2d');
+      ctx.drawImage(img, 0, 0, w, h);
+      var out;
+      try{ out = canvas.toDataURL('image/jpeg', quality); }catch(e){ out = srcDataUrl; }
+      cb(out);
+    };
+    img.onerror = function(){ cb(srcDataUrl); };
+    img.src = srcDataUrl;
+  }
+  function showImagePreview(dataUrl){
+    document.getElementById('imagePreview').src = dataUrl;
+    document.getElementById('imagePreviewWrap').style.display = 'block';
+    document.getElementById('btnRemoveImage').style.display = 'inline-flex';
+  }
+  function hideImagePreview(){
+    document.getElementById('imagePreview').src = '';
+    document.getElementById('imagePreviewWrap').style.display = 'none';
+    document.getElementById('btnRemoveImage').style.display = 'none';
+  }
+  function openLightbox(dataUrl){
+    if(!dataUrl) return;
+    document.getElementById('lightboxImg').src = dataUrl;
+    document.getElementById('lightboxOverlay').classList.add('show');
+  }
+  function closeLightbox(){
+    document.getElementById('lightboxOverlay').classList.remove('show');
+    document.getElementById('lightboxImg').src = '';
+  }
+  function thumbCellHtml(t){
+    if(t.imageData){
+      return '<img class="task-thumb" data-img="1" data-id="'+t.id+'" src="'+t.imageData+'" alt="รูปงาน">';
+    }
+    return '<span class="task-thumb-empty">—</span>';
+  }
+
   // ---------- Row <-> Task mapping ----------
   function rowToTask(row){
     return {
@@ -543,6 +612,7 @@
       remark: row.remark || '',
       approverId: row.approver_id || '',
       approvalStatus: row.approval_status || 'none',
+      imageData: row.image_data || '',
       createdAt: row.created_at
     };
   }
@@ -659,6 +729,7 @@
         '<td>'+escapeHtml(t.assignee||'—')+'</td>'+
         '<td>'+statusPill+'</td>'+
         '<td>'+escapeHtml(t.project||'—')+'</td>'+
+        '<td class="thumb-cell">'+thumbCellHtml(t)+'</td>'+
         '<td>'+displayDate(t.dueDate)+'</td>'+
         '<td><span class="pill pill-'+t.priority+'">'+PRIORITY_LABEL[t.priority]+'</span></td>'+
         '<td class="remark-cell" title="'+escapeHtml(t.remark)+'">'+escapeHtml(t.remark||'—')+'</td>'+
@@ -678,6 +749,12 @@
         if(act==='edit') openModal(id);
         else if(act==='delete') deleteTask(id);
         else if(act==='submit-approval') sendForApproval(id);
+      });
+    });
+    Array.prototype.forEach.call(body.querySelectorAll('img[data-img]'), function(img){
+      img.addEventListener('click', function(e){
+        e.stopPropagation();
+        openLightbox(img.getAttribute('src'));
       });
     });
   }
@@ -700,6 +777,7 @@
         var approvalBit = t.status==='done' ? '<span class="pill pill-'+(t.approvalStatus==='none'?'none':t.approvalStatus)+'">'+APPROVAL_LABEL[t.approvalStatus]+'</span>' : '';
         return '<div class="kcard" draggable="true" data-id="'+t.id+'">'+
           (t.project? '<div class="kcard-project">'+escapeHtml(t.project)+'</div>':'')+
+          (t.imageData ? '<img class="task-thumb" data-img="1" data-id="'+t.id+'" src="'+t.imageData+'" alt="รูปงาน" style="margin-bottom:8px;">' : '')+
           '<div class="kcard-title">'+escapeHtml(t.name)+'</div>'+
           '<div class="kcard-meta">'+
             '<span class="pill pill-'+t.priority+'">'+PRIORITY_LABEL[t.priority]+'</span>'+
@@ -715,7 +793,10 @@
     }).join('');
 
     Array.prototype.forEach.call(board.querySelectorAll('.kcard'), function(card){
-      card.addEventListener('click', function(){ openModal(card.getAttribute('data-id')); });
+      card.addEventListener('click', function(e){
+        if(e.target && e.target.getAttribute && e.target.getAttribute('data-img')){ e.stopPropagation(); openLightbox(e.target.getAttribute('src')); return; }
+        openModal(card.getAttribute('data-id'));
+      });
       card.addEventListener('dragstart', function(e){
         e.dataTransfer.setData('text/plain', card.getAttribute('data-id'));
         setTimeout(function(){ card.style.opacity='0.4'; },0);
@@ -879,6 +960,7 @@
           '<div class="approval-card-title">'+escapeHtml(t.name)+'</div>'+
           '<span class="pill pill-'+t.priority+'">'+PRIORITY_LABEL[t.priority]+'</span>'+
         '</div>'+
+        (t.imageData ? '<img class="task-thumb" data-img="1" data-id="'+t.id+'" src="'+t.imageData+'" alt="รูปงาน" style="width:64px;height:64px;margin-bottom:8px;">' : '')+
         '<div class="approval-meta">'+
           '<span>เจ้าของงาน: <b>'+escapeHtml(ownerName)+'</b></span>'+
           '<span>โปรเจกต์: <b>'+escapeHtml(t.project||'—')+'</b></span>'+
@@ -890,6 +972,9 @@
       '</div>';
     }).join('');
 
+    Array.prototype.forEach.call(el.querySelectorAll('img[data-img]'), function(img){
+      img.addEventListener('click', function(){ openLightbox(img.getAttribute('src')); });
+    });
     Array.prototype.forEach.call(el.querySelectorAll('button[data-act]'), function(btn){
       btn.addEventListener('click', function(){
         var id = btn.getAttribute('data-id');
@@ -1017,6 +1102,9 @@
       document.getElementById('fPriorityInput').value = t.priority;
       document.getElementById('fApprover').value = t.approverId || '';
       document.getElementById('fRemark').value = t.remark;
+      document.getElementById('fImageFile').value = '';
+      currentImageData = t.imageData || '';
+      if(currentImageData) showImagePreview(currentImageData); else hideImagePreview();
 
       var url = gcalUrl(t);
       if(url){
@@ -1053,6 +1141,9 @@
       document.getElementById('fPriorityInput').value='medium';
       document.getElementById('fApprover').value='';
       document.getElementById('fRemark').value='';
+      document.getElementById('fImageFile').value = '';
+      currentImageData = '';
+      hideImagePreview();
       overlay.classList.add('show');
     }
   }
@@ -1086,7 +1177,8 @@
       due_date: document.getElementById('fDue').value || null,
       priority: document.getElementById('fPriorityInput').value,
       approver_id: document.getElementById('fApprover').value || null,
-      remark: document.getElementById('fRemark').value.trim()
+      remark: document.getElementById('fRemark').value.trim(),
+      image_data: currentImageData || null
     };
     var saveBtn = document.getElementById('btnSave');
     saveBtn.disabled = true;
@@ -1131,7 +1223,7 @@
   // ---------- Export / Import ----------
   function exportJSON(){
     var data = myTasks().map(function(t){
-      return { name:t.name, assignee:t.assignee, status:t.status, project:t.project, startDate:t.startDate, dueDate:t.dueDate, priority:t.priority, remark:t.remark };
+      return { name:t.name, assignee:t.assignee, status:t.status, project:t.project, startDate:t.startDate, dueDate:t.dueDate, priority:t.priority, remark:t.remark, imageData:t.imageData||'' };
     });
     var blob = new Blob([JSON.stringify({tasks:data, exportedAt:new Date().toISOString(), note:'ไม่รวมประวัติการอัปเดต'}, null, 2)], {type:'application/json'});
     var url = URL.createObjectURL(blob);
@@ -1162,7 +1254,8 @@
             start_date: o.startDate||null,
             due_date: o.dueDate||null,
             priority: ['low','medium','high'].indexOf(o.priority)>-1 ? o.priority : 'medium',
-            remark: o.remark||''
+            remark: o.remark||'',
+            image_data: o.imageData || null
           };
         });
         var res = await sb.from('tasks').insert(rows);
@@ -1291,6 +1384,29 @@
     document.getElementById('taskOverlay').addEventListener('click', function(e){
       if(e.target.id==='taskOverlay') closeModal();
     });
+    document.getElementById('fImageFile').addEventListener('change', function(e){
+      var file = e.target.files && e.target.files[0];
+      if(!file) return;
+      if(file.type.indexOf('image/')!==0){ showToast('กรุณาเลือกไฟล์รูปภาพ'); e.target.value=''; return; }
+      if(file.size > 15*1024*1024){ showToast('ไฟล์รูปใหญ่เกินไป (สูงสุด 15MB)'); e.target.value=''; return; }
+      var reader = new FileReader();
+      reader.onload = function(ev){
+        resizeImageToDataUrl(ev.target.result, 1000, 0.72, function(dataUrl){
+          currentImageData = dataUrl;
+          showImagePreview(dataUrl);
+        });
+      };
+      reader.readAsDataURL(file);
+    });
+    document.getElementById('btnRemoveImage').addEventListener('click', function(){
+      currentImageData = '';
+      document.getElementById('fImageFile').value = '';
+      hideImagePreview();
+    });
+    document.getElementById('imagePreview').addEventListener('click', function(){
+      openLightbox(currentImageData);
+    });
+    document.getElementById('lightboxOverlay').addEventListener('click', closeLightbox);
     document.getElementById('btnAddLog').addEventListener('click', addLogFromInput);
     document.getElementById('logInput').addEventListener('keydown', function(e){
       if(e.key==='Enter'){ e.preventDefault(); addLogFromInput(); }

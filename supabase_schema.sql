@@ -68,9 +68,13 @@ create table if not exists public.tasks (
   remark text,
   approver_id uuid references auth.users(id) on delete set null,
   approval_status text not null default 'none' check (approval_status in ('none','pending','approved','rejected')),
+  image_data text,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
 );
+
+-- ถ้าตาราง tasks มีอยู่แล้วจากการรันสคริปต์นี้รอบก่อน ให้เพิ่มคอลัมน์รูปภาพ (ไม่กระทบข้อมูลเดิม)
+alter table public.tasks add column if not exists image_data text;
 
 create index if not exists tasks_owner_idx on public.tasks(owner_id);
 create index if not exists tasks_approver_idx on public.tasks(approver_id);
