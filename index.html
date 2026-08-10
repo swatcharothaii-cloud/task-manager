@@ -53,6 +53,7 @@
   .header-inner{max-width:1680px;margin:0 auto;padding:16px 0;display:flex;align-items:center;gap:16px;flex-wrap:wrap;}
   .brand{display:flex;align-items:center;gap:10px;font-weight:700;font-size:18px;margin-right:auto;}
   .brand .dot{width:10px;height:10px;border-radius:3px;background:var(--primary);display:inline-block;}
+  .today-badge{font-weight:600;font-size:12.5px;color:var(--text-muted);background:var(--gray-soft);padding:5px 11px;border-radius:100px;white-space:nowrap;}
   .header-actions{display:flex;align-items:center;gap:9px;flex-wrap:wrap;}
   .user-chip{font-size:13px;color:var(--text-muted);padding:7px 12px;background:var(--gray-soft);border-radius:100px;white-space:nowrap;}
 
@@ -173,6 +174,16 @@
   .approval-meta b{color:var(--text);font-weight:600;}
   .approval-remark{font-size:12.5px;color:var(--text-muted);background:#fafbfc;border-radius:8px;padding:8px 10px;margin-bottom:10px;}
   .approval-actions{display:flex;gap:8px;}
+  .assignee-tag{color:var(--primary-dark);font-weight:700;}
+
+  /* ---------- Team View ---------- */
+  .team-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:14px;}
+  .team-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);box-shadow:var(--shadow);padding:16px;display:flex;align-items:center;gap:12px;}
+  .team-avatar{width:44px;height:44px;border-radius:50%;background:var(--primary);color:#fff;font-size:15px;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0;}
+  .team-name{font-weight:700;font-size:14px;}
+  .team-role{font-size:12px;color:var(--text-muted);margin-top:2px;}
+  .team-role.role-approver{color:var(--amber);}
+  .team-role.role-admin{color:var(--red);}
 
   /* ---------- Modal ---------- */
   .overlay{position:fixed;inset:0;background:rgba(20,22,30,.45);display:none;align-items:flex-start;justify-content:center;z-index:100;padding:40px 16px;overflow-y:auto;}
@@ -263,7 +274,7 @@
 
 <header>
   <div class="header-inner">
-    <div class="brand"><span class="dot"></span>Task Manager</div>
+    <div class="brand"><span class="dot"></span>Task Manager<span class="today-badge" id="todayBadge"></span></div>
     <div class="header-actions">
       <span class="user-chip" id="userChip"></span>
       <button class="btn btn-primary" id="btnAdd">+ เพิ่มงาน</button>
@@ -291,7 +302,9 @@
       <button class="tab" data-view="kanban">🗂 Kanban</button>
       <button class="tab" data-view="calendar">📅 Calendar</button>
       <button class="tab" data-view="gantt">📊 Gantt</button>
+      <button class="tab" data-view="assigned">📌 รับมอบหมาย<span class="tab-badge" id="assignedTabBadge" style="display:none;">0</span></button>
       <button class="tab" data-view="approvals">✅ อนุมัติ<span class="tab-badge" id="approvalTabBadge" style="display:none;">0</span></button>
+      <button class="tab" data-view="team">👥 ทีมงาน</button>
     </div>
     <div class="filters" id="filtersBar">
       <input type="text" id="fSearch" placeholder="🔍 ค้นหาชื่องาน / ผู้รับผิดชอบ...">
@@ -345,9 +358,19 @@
     </div>
   </section>
 
+  <!-- ASSIGNED TO ME VIEW -->
+  <section class="view" id="view-assigned">
+    <div id="assignedList"></div>
+  </section>
+
   <!-- APPROVALS VIEW -->
   <section class="view" id="view-approvals">
     <div id="approvalsList"></div>
+  </section>
+
+  <!-- TEAM VIEW -->
+  <section class="view" id="view-team">
+    <div class="team-grid" id="teamGrid"></div>
   </section>
 </main>
 
@@ -365,8 +388,12 @@
           <input type="text" id="fName" placeholder="เช่น ส่งมอบแบบก่อสร้าง">
         </div>
         <div class="form-group">
-          <label>ผู้รับผิดชอบ (Assignee)</label>
-          <input type="text" id="fAssignee" placeholder="ชื่อผู้รับผิดชอบ">
+          <label>ผู้รับผิดชอบ (ข้อความอิสระ)</label>
+          <input type="text" id="fAssignee" placeholder="ชื่อผู้รับผิดชอบ (ถ้ายังไม่มีบัญชีในระบบ)">
+        </div>
+        <div class="form-group">
+          <label>แท็กทีมงาน (มอบหมายในระบบ)</label>
+          <select id="fAssigneeTag"><option value="">— ไม่ระบุ —</option></select>
         </div>
         <div class="form-group">
           <label>สถานะ (Status)</label>
@@ -480,6 +507,8 @@
   var currentUser = null;      // {id, email}
   var currentProfile = null;   // {id, display_name, role}
   var profilesById = {};       // id -> display_name
+  var allProfilesList = [];    // full profile rows {id, display_name, role} for the team directory
+  var notifIntervalId = null;
   var allTasks = [];           // every row visible to me (mine + assigned-to-me-for-approval)
   var currentView = 'table';
   var editingId = null;
@@ -488,6 +517,8 @@
   var appUIInitialized = false;
   var currentImageData = ''; // base64 data URL of the photo attached to the task open in the modal
 
+  var THAI_MONTHS = ['มกราคม','กุมภาพันธ์','มีนาคม','เมษายน','พฤษภาคม','มิถุนายน','กรกฎาคม','สิงหาคม','กันยายน','ตุลาคม','พฤศจิกายน','ธันวาคม'];
+  var DOW_TH = ['อาทิตย์','จันทร์','อังคาร','พุธ','พฤหัสบดี','ศุกร์','เสาร์'];
   var STATUS_LABEL = { todo:'To Do', doing:'Doing', done:'Done' };
   var PRIORITY_LABEL = { low:'ตามกำหนด', medium:'ด่วน', high:'ด่วนมาก' };
   var APPROVAL_LABEL = { none:'—', pending:'รออนุมัติ', approved:'อนุมัติแล้ว', rejected:'ไม่อนุมัติ' };
@@ -508,6 +539,12 @@
     var d = new Date(dateStr+'T00:00:00');
     var months=['ม.ค.','ก.พ.','มี.ค.','เม.ย.','พ.ค.','มิ.ย.','ก.ค.','ส.ค.','ก.ย.','ต.ค.','พ.ย.','ธ.ค.'];
     return d.getDate()+' '+months[d.getMonth()]+' '+d.getFullYear();
+  }
+  function updateTodayBadge(){
+    var el = document.getElementById('todayBadge');
+    if(!el) return;
+    var d = new Date();
+    el.textContent = '📅 วันนี้ '+DOW_TH[d.getDay()]+'ที่ '+d.getDate()+' '+THAI_MONTHS[d.getMonth()]+' '+(d.getFullYear()+543);
   }
   function escapeHtml(s){
     return String(s==null?'':s).replace(/[&<>"']/g, function(c){
@@ -619,12 +656,18 @@
       approverId: row.approver_id || '',
       approvalStatus: row.approval_status || 'none',
       imageData: row.image_data || '',
+      assigneeId: row.assignee_id || '',
       createdAt: row.created_at
     };
   }
 
   function myTasks(){ return allTasks.filter(function(t){ return t.ownerId===currentUser.id; }); }
   function approvalTasks(){ return allTasks.filter(function(t){ return t.approverId===currentUser.id; }); }
+  function assignedToMeTasks(){ return allTasks.filter(function(t){ return t.assigneeId===currentUser.id && t.ownerId!==currentUser.id; }); }
+  function assigneeDisplay(t){
+    if(t.assigneeId) return '<span class="assignee-tag">🏷️ '+escapeHtml(profileName(t.assigneeId))+'</span>'+(t.assignee?' <span style="color:var(--text-muted)">('+escapeHtml(t.assignee)+')</span>':'');
+    return escapeHtml(t.assignee||'—');
+  }
 
   // ---------- Filtering (operates on my own tasks) ----------
   function getFiltered(){
@@ -634,7 +677,8 @@
       if(filters.project && t.project!==filters.project) return false;
       if(filters.search){
         var s = filters.search.toLowerCase();
-        if(t.name.toLowerCase().indexOf(s)===-1 && t.assignee.toLowerCase().indexOf(s)===-1) return false;
+        var taggedName = t.assigneeId ? profileName(t.assigneeId) : '';
+        if(t.name.toLowerCase().indexOf(s)===-1 && t.assignee.toLowerCase().indexOf(s)===-1 && taggedName.toLowerCase().indexOf(s)===-1) return false;
       }
       return true;
     });
@@ -660,16 +704,45 @@
   }
 
   async function loadAllProfiles(){
-    var res = await sb.from('profiles').select('id, display_name').order('display_name', {ascending:true});
+    var res = await sb.from('profiles').select('id, display_name, role').order('display_name', {ascending:true});
     profilesById = {};
-    (res.data||[]).forEach(function(p){ profilesById[p.id] = p.display_name || p.id.slice(0,8); });
-    var sel = document.getElementById('fApprover');
-    var current = sel.value;
-    sel.innerHTML = '<option value="">— ไม่ระบุ —</option>' + (res.data||[])
-      .filter(function(p){ return p.id!==currentUser.id; })
-      .map(function(p){ return '<option value="'+p.id+'">'+escapeHtml(p.display_name||p.id.slice(0,8))+'</option>'; })
-      .join('');
-    sel.value = current || '';
+    allProfilesList = res.data || [];
+    allProfilesList.forEach(function(p){ profilesById[p.id] = p.display_name || p.id.slice(0,8); });
+
+    ['fApprover','fAssigneeTag'].forEach(function(selId){
+      var sel = document.getElementById(selId);
+      var current = sel.value;
+      sel.innerHTML = '<option value="">— ไม่ระบุ —</option>' + allProfilesList
+        .filter(function(p){ return p.id!==currentUser.id; })
+        .map(function(p){ return '<option value="'+p.id+'">'+escapeHtml(p.display_name||p.id.slice(0,8))+'</option>'; })
+        .join('');
+      sel.value = current || '';
+    });
+
+    renderTeam();
+  }
+
+  function renderTeam(){
+    var grid = document.getElementById('teamGrid');
+    if(!grid) return;
+    if(allProfilesList.length===0){
+      grid.innerHTML = '<div class="empty-state"><div class="big">👥</div>ยังไม่มีข้อมูลทีมงาน</div>';
+      return;
+    }
+    var roleLabel = { member:'สมาชิก', approver:'ผู้อนุมัติ', admin:'แอดมิน' };
+    grid.innerHTML = allProfilesList.map(function(p){
+      var name = p.display_name || p.id.slice(0,8);
+      var initials = name.trim().split(/\s+/).map(function(w){return w[0];}).slice(0,2).join('').toUpperCase();
+      var isMe = p.id===currentUser.id;
+      var role = p.role || 'member';
+      return '<div class="team-card">'+
+        '<div class="team-avatar">'+(initials||'—')+'</div>'+
+        '<div>'+
+          '<div class="team-name">'+escapeHtml(name)+(isMe?' <span style="color:var(--text-muted);font-weight:400;">(คุณ)</span>':'')+'</div>'+
+          '<div class="team-role role-'+role+'">'+(roleLabel[role]||role)+'</div>'+
+        '</div>'+
+      '</div>';
+    }).join('');
   }
 
   async function fetchTasks(){
@@ -696,6 +769,7 @@
     renderKanban();
     renderCalendar();
     renderGantt();
+    renderAssignedToMe();
     renderApprovals();
     renderNotifications();
   }
@@ -732,7 +806,7 @@
         : '<span class="pill pill-'+t.status+'">'+STATUS_LABEL[t.status]+'</span>';
       return '<tr data-id="'+t.id+'">'+
         '<td class="task-name-cell">'+escapeHtml(t.name)+'</td>'+
-        '<td>'+escapeHtml(t.assignee||'—')+'</td>'+
+        '<td>'+assigneeDisplay(t)+'</td>'+
         '<td>'+statusPill+'</td>'+
         '<td>'+escapeHtml(t.project||'—')+'</td>'+
         '<td class="thumb-cell">'+thumbCellHtml(t)+'</td>'+
@@ -777,7 +851,8 @@
     board.innerHTML = cols.map(function(c){
       var items = list.filter(function(t){return t.status===c.key;});
       var cards = items.map(function(t){
-        var initials = (t.assignee||'?').trim().split(/\s+/).map(function(w){return w[0];}).slice(0,2).join('').toUpperCase();
+        var assigneeName = t.assigneeId ? profileName(t.assigneeId) : (t.assignee||'?');
+        var initials = assigneeName.trim().split(/\s+/).map(function(w){return w[0];}).slice(0,2).join('').toUpperCase();
         var overdue = isOverdue(t);
         var footRight = overdue ? '<span style="color:#dc2626;font-weight:700;">⚠ เกินกำหนด</span>' : '<span>ครบกำหนด '+displayDate(t.dueDate)+'</span>';
         var approvalBit = t.status==='done' ? '<span class="pill pill-'+(t.approvalStatus==='none'?'none':t.approvalStatus)+'">'+APPROVAL_LABEL[t.approvalStatus]+'</span>' : '';
@@ -787,7 +862,7 @@
           '<div class="kcard-title">'+escapeHtml(t.name)+'</div>'+
           '<div class="kcard-meta">'+
             '<span class="pill pill-'+t.priority+'">'+PRIORITY_LABEL[t.priority]+'</span>'+
-            '<span class="avatar" title="'+escapeHtml(t.assignee||'')+'">'+(initials||'—')+'</span>'+
+            '<span class="avatar" title="'+escapeHtml(assigneeName||'')+'">'+(initials||'—')+'</span>'+
           '</div>'+
           '<div class="kcard-foot">'+footRight+approvalBit+'</div>'+
         '</div>';
@@ -841,8 +916,7 @@
   function renderCalendar(){
     var head = document.getElementById('calTitle');
     var grid = document.getElementById('calGrid');
-    var monthNames = ['มกราคม','กุมภาพันธ์','มีนาคม','เมษายน','พฤษภาคม','มิถุนายน','กรกฎาคม','สิงหาคม','กันยายน','ตุลาคม','พฤศจิกายน','ธันวาคม'];
-    head.textContent = monthNames[calMonth] + ' ' + (calYear+543);
+    head.textContent = THAI_MONTHS[calMonth] + ' ' + (calYear+543);
 
     var dowNames = ['อา','จ','อ','พ','พฤ','ศ','ส'];
     var html = dowNames.map(function(d){ return '<div class="cal-dow">'+d+'</div>'; }).join('');
@@ -932,6 +1006,53 @@
   }
 
   // ---------- Approvals View (tasks where I'm the approver) ----------
+  // ---------- Assigned to Me View (tasks where I'm tagged as assignee) ----------
+  function renderAssignedToMe(){
+    var list = assignedToMeTasks().slice().sort(function(a,b){
+      var da = a.status==='done' ? 1 : 0, db = b.status==='done' ? 1 : 0;
+      if(da!==db) return da-db;
+      return (a.dueDate||'9999').localeCompare(b.dueDate||'9999');
+    });
+    var openCount = list.filter(function(t){ return t.status!=='done'; }).length;
+    var badge = document.getElementById('assignedTabBadge');
+    if(openCount>0){ badge.style.display='inline-block'; badge.textContent = openCount; }
+    else { badge.style.display='none'; }
+
+    var el = document.getElementById('assignedList');
+    if(list.length===0){
+      el.innerHTML = '<div class="empty-state"><div class="big">📌</div>ยังไม่มีงานที่ถูกมอบหมายให้คุณ</div>';
+      return;
+    }
+    el.innerHTML = list.map(function(t){
+      var ownerName = profileName(t.ownerId);
+      var overdue = isOverdue(t);
+      var statusPill = overdue
+        ? '<span class="pill pill-overdue">⚠ เกินกำหนด</span>'
+        : '<span class="pill pill-'+t.status+'">'+STATUS_LABEL[t.status]+'</span>';
+      return '<div class="approval-card" data-id="'+t.id+'" style="cursor:pointer;">'+
+        '<div class="approval-card-head">'+
+          '<div class="approval-card-title">'+escapeHtml(t.name)+'</div>'+
+          '<span class="pill pill-'+t.priority+'">'+PRIORITY_LABEL[t.priority]+'</span>'+
+        '</div>'+
+        (t.imageData ? '<img class="task-thumb" data-img="1" data-id="'+t.id+'" src="'+t.imageData+'" alt="รูปงาน" style="width:64px;height:64px;margin-bottom:8px;">' : '')+
+        '<div class="approval-meta">'+
+          '<span>เจ้าของงาน: <b>'+escapeHtml(ownerName)+'</b></span>'+
+          '<span>โปรเจกต์: <b>'+escapeHtml(t.project||'—')+'</b></span>'+
+          '<span>กำหนดส่ง: <b>'+displayDate(t.dueDate)+'</b></span>'+
+          '<span>สถานะ: '+statusPill+'</span>'+
+        '</div>'+
+        (t.remark ? '<div class="approval-remark">'+escapeHtml(t.remark)+'</div>' : '')+
+      '</div>';
+    }).join('');
+
+    Array.prototype.forEach.call(el.querySelectorAll('img[data-img]'), function(img){
+      img.addEventListener('click', function(e){ e.stopPropagation(); openLightbox(img.getAttribute('src')); });
+    });
+    Array.prototype.forEach.call(el.querySelectorAll('.approval-card[data-id]'), function(card){
+      card.addEventListener('click', function(){ openModal(card.getAttribute('data-id')); });
+    });
+  }
+
   function renderApprovals(){
     var list = approvalTasks().slice().sort(function(a,b){
       var pa = a.approvalStatus==='pending' ? 0 : 1;
@@ -1025,7 +1146,7 @@
 
   // ---------- Notifications ----------
   function renderNotifications(){
-    var mine = myTasks();
+    var mine = myTasks().concat(assignedToMeTasks());
     var overdue = mine.filter(isOverdue);
     var soon = mine.filter(isDueSoon);
     var pendingForMe = approvalTasks().filter(function(t){ return t.approvalStatus==='pending'; });
@@ -1040,10 +1161,12 @@
       return;
     }
     var items = overdue.map(function(t){
-      return {t:t, view:'table', label:'⚠ เกินกำหนด '+Math.abs(daysDiff(t.dueDate))+' วัน'};
+      var tag = t.ownerId!==currentUser.id ? ' (ได้รับมอบหมาย)' : '';
+      return {t:t, view:'table', label:'⚠ เกินกำหนด '+Math.abs(daysDiff(t.dueDate))+' วัน'+tag};
     }).concat(soon.map(function(t){
       var d = daysDiff(t.dueDate);
-      return {t:t, view:'table', label: d===0 ? '⏰ ครบกำหนดวันนี้' : '⏳ ใกล้ครบกำหนดใน '+d+' วัน'};
+      var tag = t.ownerId!==currentUser.id ? ' (ได้รับมอบหมาย)' : '';
+      return {t:t, view:'table', label: (d===0 ? '⏰ ครบกำหนดวันนี้' : '⏳ ใกล้ครบกำหนดใน '+d+' วัน')+tag};
     })).concat(pendingForMe.map(function(t){
       return {t:t, view:'approvals', label:'🧾 รอการอนุมัติจากคุณ (เจ้าของ: '+profileName(t.ownerId)+')'};
     }));
@@ -1074,7 +1197,7 @@
 
   function maybePushBrowserNotification(){
     if(!('Notification' in window)) return;
-    var mine = myTasks();
+    var mine = myTasks().concat(assignedToMeTasks());
     var overdue = mine.filter(isOverdue);
     var soon = mine.filter(isDueSoon);
     var pendingForMe = approvalTasks().filter(function(t){ return t.approvalStatus==='pending'; });
@@ -1101,6 +1224,7 @@
       if(!t) return;
       document.getElementById('fName').value = t.name;
       document.getElementById('fAssignee').value = t.assignee;
+      document.getElementById('fAssigneeTag').value = t.assigneeId || '';
       document.getElementById('fFormStatus').value = t.status;
       document.getElementById('fProjectInput').value = t.project;
       document.getElementById('fStart').value = t.startDate;
@@ -1140,6 +1264,7 @@
     } else {
       document.getElementById('fName').value='';
       document.getElementById('fAssignee').value='';
+      document.getElementById('fAssigneeTag').value='';
       document.getElementById('fFormStatus').value='todo';
       document.getElementById('fProjectInput').value='';
       document.getElementById('fStart').value=todayStr();
@@ -1177,6 +1302,7 @@
     var payload = {
       name: name,
       assignee: document.getElementById('fAssignee').value.trim(),
+      assignee_id: document.getElementById('fAssigneeTag').value || null,
       status: document.getElementById('fFormStatus').value,
       project: document.getElementById('fProjectInput').value.trim(),
       start_date: document.getElementById('fStart').value || null,
@@ -1348,16 +1474,20 @@
     document.getElementById('fStatus').value='';
     document.getElementById('fPriority').value='';
     switchToView('table'); // reset to a known view — a different account may have left another tab active
+    updateTodayBadge();
     await loadProfile();
     await loadAllProfiles();
     await fetchTasks();
     setTimeout(maybePushBrowserNotification, 1200);
+    if(notifIntervalId) clearInterval(notifIntervalId);
+    notifIntervalId = setInterval(function(){ updateTodayBadge(); renderNotifications(); }, 60000);
   }
 
   function onLogout(){
     currentUser = null;
     currentProfile = null;
     allTasks = [];
+    if(notifIntervalId){ clearInterval(notifIntervalId); notifIntervalId = null; }
     document.getElementById('appRoot').style.display='none';
     document.getElementById('authScreen').style.display='flex';
     document.getElementById('loginForm').reset();
