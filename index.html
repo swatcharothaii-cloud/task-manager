@@ -187,6 +187,22 @@
   .team-role{font-size:12px;color:var(--text-muted);margin-top:2px;}
   .team-role.role-approver{color:var(--amber);}
   .team-role.role-admin{color:var(--red);}
+  .team-lead-note{font-size:11.5px;color:var(--text-muted);margin-top:2px;}
+  .team-lead-picker{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);box-shadow:var(--shadow);padding:14px 16px;margin-bottom:16px;display:flex;align-items:center;gap:10px;flex-wrap:wrap;}
+  .team-lead-picker label{font-size:13px;font-weight:600;color:var(--text-muted);white-space:nowrap;}
+  .team-lead-picker select{min-width:200px;}
+
+  /* ---------- Weekly Summary View ---------- */
+  .weekly-total{font-size:13.5px;color:var(--text-muted);margin-bottom:14px;}
+  .weekly-total b{color:var(--text);}
+  .week-row{display:flex;align-items:center;gap:14px;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);box-shadow:var(--shadow);padding:12px 16px;margin-bottom:8px;flex-wrap:wrap;}
+  .week-row.current{border-color:var(--primary);background:#f5f7ff;}
+  .week-label{font-weight:600;font-size:13.5px;min-width:200px;flex:0 0 auto;}
+  .week-now-badge{background:var(--primary);color:#fff;font-size:10.5px;font-weight:700;border-radius:100px;padding:2px 8px;margin-left:6px;}
+  .week-bar-wrap{background:var(--gray-soft);border-radius:100px;height:10px;overflow:hidden;flex:1 1 160px;min-width:120px;}
+  .week-bar{background:var(--primary);height:100%;border-radius:100px;}
+  .week-count{font-size:13px;color:var(--text-muted);font-weight:600;flex:0 0 auto;min-width:70px;text-align:right;}
+  .created-cell{color:var(--text-muted);font-size:12.5px;white-space:nowrap;}
 
   /* ---------- Modal ---------- */
   .overlay{position:fixed;inset:0;background:rgba(20,22,30,.45);display:none;align-items:flex-start;justify-content:center;z-index:100;padding:40px 16px;overflow-y:auto;}
@@ -307,6 +323,8 @@
       <button class="tab" data-view="gantt">📊 Gantt</button>
       <button class="tab" data-view="assigned">📌 รับมอบหมาย<span class="tab-badge" id="assignedTabBadge" style="display:none;">0</span></button>
       <button class="tab" data-view="approvals">✅ อนุมัติ<span class="tab-badge" id="approvalTabBadge" style="display:none;">0</span></button>
+      <button class="tab" data-view="weekly">📆 สรุปรายสัปดาห์</button>
+      <button class="tab" data-view="myteam">🧑‍💼 ทีมของฉัน<span class="tab-badge" id="myTeamTabBadge" style="display:none;">0</span></button>
       <button class="tab" data-view="team">👥 ทีมงาน</button>
     </div>
     <div class="filters" id="filtersBar">
@@ -325,7 +343,7 @@
       <table>
         <thead>
           <tr>
-            <th>Task Name</th><th>Assignee</th><th>Status</th><th>Project / Site</th>
+            <th>Task Name</th><th>วันที่ทำรายการ</th><th>Assignee</th><th>Status</th><th>Project / Site</th>
             <th>รูป</th><th>Due Date</th><th>Priority</th><th>Remark</th><th>Approval</th><th></th>
           </tr>
         </thead>
@@ -371,8 +389,23 @@
     <div id="approvalsList"></div>
   </section>
 
+  <!-- WEEKLY SUMMARY VIEW -->
+  <section class="view" id="view-weekly">
+    <div id="weeklySummaryList"></div>
+  </section>
+
+  <!-- MY TEAM VIEW (for team leads) -->
+  <section class="view" id="view-myteam">
+    <div id="myTeamList"></div>
+  </section>
+
   <!-- TEAM VIEW -->
   <section class="view" id="view-team">
+    <div class="team-lead-picker">
+      <label>หัวหน้าทีมของฉัน:</label>
+      <select id="fMyTeamLead"><option value="">— ไม่มี / ไม่ระบุ —</option></select>
+      <button class="btn btn-sm btn-primary" id="btnSaveTeamLead">บันทึก</button>
+    </div>
     <div class="team-grid" id="teamGrid"></div>
   </section>
 </main>
@@ -456,7 +489,7 @@
 
       <div class="log-section" id="logSection" style="display:none;">
         <h4>ประวัติการอัปเดต (Update Log)</h4>
-        <div class="log-add">
+        <div class="log-add" id="logAddRow">
           <input type="text" id="logInput" placeholder="พิมพ์อัปเดตความคืบหน้า แล้วกด Enter...">
           <button class="btn btn-sm" id="btnAddLog">เพิ่ม</button>
         </div>
@@ -542,6 +575,31 @@
     var d = new Date(dateStr+'T00:00:00');
     var months=['ม.ค.','ก.พ.','มี.ค.','เม.ย.','พ.ค.','มิ.ย.','ก.ค.','ส.ค.','ก.ย.','ต.ค.','พ.ย.','ธ.ค.'];
     return d.getDate()+' '+months[d.getMonth()]+' '+d.getFullYear();
+  }
+  function displayDateTime(isoStr){
+    if(!isoStr) return '—';
+    var d = new Date(isoStr);
+    if(isNaN(d.getTime())) return '—';
+    var months=['ม.ค.','ก.พ.','มี.ค.','เม.ย.','พ.ค.','มิ.ย.','ก.ค.','ส.ค.','ก.ย.','ต.ค.','พ.ย.','ธ.ค.'];
+    var hh=('0'+d.getHours()).slice(-2), mm=('0'+d.getMinutes()).slice(-2);
+    return d.getDate()+' '+months[d.getMonth()]+' '+d.getFullYear()+' '+hh+':'+mm;
+  }
+  function weekMonday(dateObj){
+    var d = new Date(dateObj.getTime());
+    d.setHours(0,0,0,0);
+    var day = d.getDay();
+    var diff = (day===0 ? -6 : 1-day);
+    d.setDate(d.getDate()+diff);
+    return d;
+  }
+  function weekRangeLabel(mondayDate){
+    var sun = new Date(mondayDate.getTime());
+    sun.setDate(sun.getDate()+6);
+    var y = mondayDate.getFullYear()+543;
+    if(mondayDate.getMonth()===sun.getMonth()){
+      return mondayDate.getDate()+'-'+sun.getDate()+' '+THAI_MONTHS[mondayDate.getMonth()]+' '+y;
+    }
+    return mondayDate.getDate()+' '+THAI_MONTHS[mondayDate.getMonth()]+' - '+sun.getDate()+' '+THAI_MONTHS[sun.getMonth()]+' '+y;
   }
   function updateTodayBadge(){
     var el = document.getElementById('todayBadge');
@@ -707,7 +765,7 @@
   }
 
   async function loadAllProfiles(){
-    var res = await sb.from('profiles').select('id, display_name, role').order('display_name', {ascending:true});
+    var res = await sb.from('profiles').select('id, display_name, role, team_lead_id').order('display_name', {ascending:true});
     profilesById = {};
     allProfilesList = res.data || [];
     allProfilesList.forEach(function(p){ profilesById[p.id] = p.display_name || p.id.slice(0,8); });
@@ -721,6 +779,16 @@
         .join('');
       sel.value = current || '';
     });
+
+    var leadSel = document.getElementById('fMyTeamLead');
+    if(leadSel){
+      var me = allProfilesList.find(function(p){ return p.id===currentUser.id; });
+      leadSel.innerHTML = '<option value="">— ไม่มี / ไม่ระบุ —</option>' + allProfilesList
+        .filter(function(p){ return p.id!==currentUser.id; })
+        .map(function(p){ return '<option value="'+p.id+'">'+escapeHtml(p.display_name||p.id.slice(0,8))+'</option>'; })
+        .join('');
+      leadSel.value = (me && me.team_lead_id) || '';
+    }
 
     renderTeam();
   }
@@ -738,11 +806,13 @@
       var initials = name.trim().split(/\s+/).map(function(w){return w[0];}).slice(0,2).join('').toUpperCase();
       var isMe = p.id===currentUser.id;
       var role = p.role || 'member';
+      var leadNote = p.team_lead_id ? '<div class="team-lead-note">หัวหน้าทีม: '+escapeHtml(profileName(p.team_lead_id))+'</div>' : '';
       return '<div class="team-card">'+
         '<div class="team-avatar">'+(initials||'—')+'</div>'+
         '<div>'+
           '<div class="team-name">'+escapeHtml(name)+(isMe?' <span style="color:var(--text-muted);font-weight:400;">(คุณ)</span>':'')+'</div>'+
           '<div class="team-role role-'+role+'">'+(roleLabel[role]||role)+'</div>'+
+          leadNote+
         '</div>'+
       '</div>';
     }).join('');
@@ -774,6 +844,8 @@
     renderGantt();
     renderAssignedToMe();
     renderApprovals();
+    renderWeeklySummary();
+    renderMyTeamTasks();
     renderNotifications();
   }
 
@@ -809,6 +881,7 @@
         : '<span class="pill pill-'+t.status+'">'+STATUS_LABEL[t.status]+'</span>';
       return '<tr data-id="'+t.id+'">'+
         '<td class="task-name-cell">'+escapeHtml(t.name)+'</td>'+
+        '<td class="created-cell">'+displayDateTime(t.createdAt)+'</td>'+
         '<td>'+assigneeDisplay(t)+'</td>'+
         '<td>'+statusPill+'</td>'+
         '<td>'+escapeHtml(t.project||'—')+'</td>'+
@@ -1120,6 +1193,114 @@
     });
   }
 
+  // ---------- Weekly Summary View ----------
+  function renderWeeklySummary(){
+    var el = document.getElementById('weeklySummaryList');
+    if(!el) return;
+    var source = myTasks();
+    if(source.length===0){
+      el.innerHTML = '<div class="empty-state"><div class="big">📆</div>ยังไม่มีงานที่สร้างไว้</div>';
+      return;
+    }
+    var buckets = {};
+    source.forEach(function(t){
+      if(!t.createdAt) return;
+      var d = new Date(t.createdAt);
+      if(isNaN(d.getTime())) return;
+      var mon = weekMonday(d);
+      var key = fmtDate(mon);
+      if(!buckets[key]) buckets[key] = { monday: mon, count: 0 };
+      buckets[key].count++;
+    });
+    var weeks = Object.keys(buckets).map(function(k){ return buckets[k]; }).sort(function(a,b){ return b.monday - a.monday; });
+    if(weeks.length===0){
+      el.innerHTML = '<div class="empty-state"><div class="big">📆</div>ยังไม่มีข้อมูลวันที่ทำรายการ</div>';
+      return;
+    }
+    var maxCount = Math.max.apply(null, weeks.map(function(w){ return w.count; }));
+    var todayKey = fmtDate(weekMonday(new Date()));
+    el.innerHTML =
+      '<div class="weekly-total">รวมทั้งหมด <b>'+source.length+'</b> รายการ ใน <b>'+weeks.length+'</b> สัปดาห์</div>' +
+      weeks.map(function(w){
+        var key = fmtDate(w.monday);
+        var isCurrent = key===todayKey;
+        var pct = maxCount>0 ? Math.round(w.count/maxCount*100) : 0;
+        return '<div class="week-row'+(isCurrent?' current':'')+'">'+
+          '<div class="week-label">'+weekRangeLabel(w.monday)+(isCurrent?' <span class="week-now-badge">สัปดาห์นี้</span>':'')+'</div>'+
+          '<div class="week-bar-wrap"><div class="week-bar" style="width:'+pct+'%"></div></div>'+
+          '<div class="week-count">'+w.count+' รายการ</div>'+
+        '</div>';
+      }).join('');
+  }
+
+  // ---------- My Team View (for team leads) ----------
+  function myTeamMemberIds(){
+    return allProfilesList.filter(function(p){ return p.team_lead_id===currentUser.id; }).map(function(p){ return p.id; });
+  }
+  function myTeamTasks(){
+    var ids = myTeamMemberIds();
+    if(ids.length===0) return [];
+    return allTasks.filter(function(t){ return ids.indexOf(t.ownerId)>-1; });
+  }
+  function renderMyTeamTasks(){
+    var el = document.getElementById('myTeamList');
+    if(!el) return;
+    var list = myTeamTasks().slice().sort(function(a,b){
+      var da = a.status==='done' ? 1 : 0, db = b.status==='done' ? 1 : 0;
+      if(da!==db) return da-db;
+      return (a.dueDate||'9999').localeCompare(b.dueDate||'9999');
+    });
+    var openCount = list.filter(function(t){ return t.status!=='done'; }).length;
+    var badge = document.getElementById('myTeamTabBadge');
+    if(openCount>0){ badge.style.display='inline-block'; badge.textContent = openCount; }
+    else { badge.style.display='none'; }
+
+    if(myTeamMemberIds().length===0){
+      el.innerHTML = '<div class="empty-state"><div class="big">🧑‍💼</div>คุณยังไม่มีสมาชิกในทีม — ให้สมาชิกไปที่แท็บ "ทีมงาน" แล้วเลือกคุณเป็นหัวหน้าทีม</div>';
+      return;
+    }
+    if(list.length===0){
+      el.innerHTML = '<div class="empty-state"><div class="big">🧑‍💼</div>สมาชิกในทีมของคุณยังไม่มีงาน</div>';
+      return;
+    }
+    el.innerHTML = list.map(function(t){
+      var memberName = profileName(t.ownerId);
+      var overdue = isOverdue(t);
+      var statusPill = overdue
+        ? '<span class="pill pill-overdue">⚠ เกินกำหนด</span>'
+        : '<span class="pill pill-'+t.status+'">'+STATUS_LABEL[t.status]+'</span>';
+      return '<div class="approval-card" data-id="'+t.id+'" style="cursor:pointer;">'+
+        '<div class="approval-card-head">'+
+          '<div class="approval-card-title">'+escapeHtml(t.name)+'</div>'+
+          '<span class="pill pill-'+t.priority+'">'+PRIORITY_LABEL[t.priority]+'</span>'+
+        '</div>'+
+        (t.imageData ? '<img class="task-thumb" data-img="1" data-id="'+t.id+'" src="'+t.imageData+'" alt="รูปงาน" style="width:64px;height:64px;margin-bottom:8px;">' : '')+
+        '<div class="approval-meta">'+
+          '<span>สมาชิก: <b>'+escapeHtml(memberName)+'</b></span>'+
+          '<span>โปรเจกต์: <b>'+escapeHtml(t.project||'—')+'</b></span>'+
+          '<span>กำหนดส่ง: <b>'+displayDate(t.dueDate)+'</b></span>'+
+          '<span>สถานะ: '+statusPill+'</span>'+
+        '</div>'+
+        (t.remark ? '<div class="approval-remark">'+escapeHtml(t.remark)+'</div>' : '')+
+      '</div>';
+    }).join('');
+
+    Array.prototype.forEach.call(el.querySelectorAll('img[data-img]'), function(img){
+      img.addEventListener('click', function(e){ e.stopPropagation(); openLightbox(img.getAttribute('src')); });
+    });
+    Array.prototype.forEach.call(el.querySelectorAll('.approval-card[data-id]'), function(card){
+      card.addEventListener('click', function(){ openModal(card.getAttribute('data-id'), {focusLog:true, readOnly:true}); });
+    });
+  }
+
+  async function setMyTeamLead(leadId){
+    var payload = { team_lead_id: leadId || null };
+    var res = await sb.from('profiles').update(payload).eq('id', currentUser.id);
+    if(res.error){ showToast('บันทึกไม่สำเร็จ: '+res.error.message); return; }
+    showToast('บันทึกหัวหน้าทีมแล้ว');
+    await loadAllProfiles();
+  }
+
   // ---------- Approval actions ----------
   async function sendForApproval(id){
     var t = allTasks.find(function(x){return x.id===id;});
@@ -1218,15 +1399,26 @@
   }
 
   // ---------- Modal ----------
+  var READONLY_FIELD_IDS = ['fName','fAssignee','fAssigneeTag','fFormStatus','fProjectInput','fStart','fDue','fPriorityInput','fApprover','fRemark','fImageFile'];
+  function setFormReadOnly(readOnly){
+    READONLY_FIELD_IDS.forEach(function(fid){
+      var el = document.getElementById(fid);
+      if(el) el.disabled = !!readOnly;
+    });
+    document.getElementById('logAddRow').style.display = readOnly ? 'none' : 'flex';
+    document.getElementById('btnSave').style.display = readOnly ? 'none' : 'inline-flex';
+  }
+
   async function openModal(id, opts){
     opts = opts || {};
     editingId = id || null;
     var overlay = document.getElementById('taskOverlay');
-    document.getElementById('modalTitle').textContent = id ? 'แก้ไขงาน' : 'เพิ่มงานใหม่';
-    document.getElementById('btnDeleteTask').style.display = id ? 'inline-flex' : 'none';
+    document.getElementById('modalTitle').textContent = opts.readOnly ? 'ดูงาน (อ่านอย่างเดียว)' : (id ? 'แก้ไขงาน' : 'เพิ่มงานใหม่');
+    document.getElementById('btnDeleteTask').style.display = (id && !opts.readOnly) ? 'inline-flex' : 'none';
     document.getElementById('logSection').style.display = id ? 'block' : 'none';
     document.getElementById('approvalSection').style.display = 'none';
     document.getElementById('gcalRow').style.display = 'none';
+    setFormReadOnly(!!opts.readOnly);
 
     if(id){
       var t = allTasks.find(function(x){return x.id===id;});
@@ -1244,6 +1436,7 @@
       document.getElementById('fImageFile').value = '';
       currentImageData = t.imageData || '';
       if(currentImageData) showImagePreview(currentImageData); else hideImagePreview();
+      if(opts.readOnly) document.getElementById('btnRemoveImage').style.display = 'none';
 
       var url = gcalUrl(t);
       if(url){
@@ -1256,10 +1449,12 @@
         var row = document.getElementById('approvalRow');
         var pillHtml = '<span class="pill pill-'+(t.approvalStatus==='none'?'none':t.approvalStatus)+'">'+APPROVAL_LABEL[t.approvalStatus]+'</span>';
         var btnHtml = '';
-        if(t.status==='done' && t.approvalStatus==='none'){
-          btnHtml = '<button class="btn btn-sm" id="btnSendApproval">📩 ส่งขออนุมัติ</button>';
-        } else if(t.approvalStatus==='rejected'){
-          btnHtml = '<button class="btn btn-sm" id="btnSendApproval">📩 ส่งขออนุมัติใหม่</button>';
+        if(!opts.readOnly){
+          if(t.status==='done' && t.approvalStatus==='none'){
+            btnHtml = '<button class="btn btn-sm" id="btnSendApproval">📩 ส่งขออนุมัติ</button>';
+          } else if(t.approvalStatus==='rejected'){
+            btnHtml = '<button class="btn btn-sm" id="btnSendApproval">📩 ส่งขออนุมัติใหม่</button>';
+          }
         }
         row.innerHTML = pillHtml + btnHtml;
         var sendBtn = document.getElementById('btnSendApproval');
@@ -1517,6 +1712,14 @@
     Array.prototype.forEach.call(document.querySelectorAll('.tab'), function(tab){
       tab.addEventListener('click', function(){ switchToView(tab.getAttribute('data-view')); });
     });
+
+    // Team lead picker
+    var btnSaveTeamLead = document.getElementById('btnSaveTeamLead');
+    if(btnSaveTeamLead){
+      btnSaveTeamLead.addEventListener('click', function(){
+        setMyTeamLead(document.getElementById('fMyTeamLead').value);
+      });
+    }
 
     // Filters
     document.getElementById('fSearch').addEventListener('input', function(e){ filters.search=e.target.value; renderAll(); });
