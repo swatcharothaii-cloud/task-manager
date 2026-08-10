@@ -89,7 +89,10 @@
   thead th{text-align:left;padding:13px 16px;background:#fafbfc;border-bottom:1px solid var(--border);color:var(--text-muted);font-weight:600;font-size:13px;text-transform:uppercase;letter-spacing:.03em;white-space:nowrap;}
   tbody td{padding:13px 16px;border-bottom:1px solid var(--border);vertical-align:middle;}
   tbody tr:last-child td{border-bottom:none;}
+  tbody tr{cursor:pointer;}
   tbody tr:hover{background:#fafbfe;}
+  tbody tr td.row-actions-cell,
+  tbody tr td:last-child{cursor:default;}
   .task-name-cell{font-weight:600;}
   .remark-cell{color:var(--text-muted);max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
   .thumb-cell{width:48px;}
@@ -837,6 +840,11 @@
         openLightbox(img.getAttribute('src'));
       });
     });
+    Array.prototype.forEach.call(body.querySelectorAll('tr[data-id]'), function(row){
+      row.addEventListener('click', function(){
+        openModal(row.getAttribute('data-id'), {focusLog:true});
+      });
+    });
   }
 
   // ---------- Kanban View ----------
@@ -876,7 +884,7 @@
     Array.prototype.forEach.call(board.querySelectorAll('.kcard'), function(card){
       card.addEventListener('click', function(e){
         if(e.target && e.target.getAttribute && e.target.getAttribute('data-img')){ e.stopPropagation(); openLightbox(e.target.getAttribute('src')); return; }
-        openModal(card.getAttribute('data-id'));
+        openModal(card.getAttribute('data-id'), {focusLog:true});
       });
       card.addEventListener('dragstart', function(e){
         e.dataTransfer.setData('text/plain', card.getAttribute('data-id'));
@@ -958,7 +966,7 @@
     Array.prototype.forEach.call(grid.querySelectorAll('.cal-chip'), function(chip){
       chip.addEventListener('click', function(e){
         if(e.target && e.target.getAttribute('data-gcal')) return; // let the gcal link open normally
-        openModal(chip.getAttribute('data-id'));
+        openModal(chip.getAttribute('data-id'), {focusLog:true});
       });
     });
   }
@@ -1001,7 +1009,7 @@
     content.innerHTML = '<div class="gantt-scale">'+scaleHtml+'</div>' + rows;
 
     Array.prototype.forEach.call(content.querySelectorAll('.gantt-bar'), function(bar){
-      bar.addEventListener('click', function(){ openModal(bar.getAttribute('data-id')); });
+      bar.addEventListener('click', function(){ openModal(bar.getAttribute('data-id'), {focusLog:true}); });
     });
   }
 
@@ -1049,7 +1057,7 @@
       img.addEventListener('click', function(e){ e.stopPropagation(); openLightbox(img.getAttribute('src')); });
     });
     Array.prototype.forEach.call(el.querySelectorAll('.approval-card[data-id]'), function(card){
-      card.addEventListener('click', function(){ openModal(card.getAttribute('data-id')); });
+      card.addEventListener('click', function(){ openModal(card.getAttribute('data-id'), {focusLog:true}); });
     });
   }
 
@@ -1181,7 +1189,7 @@
         var it = items[idx];
         document.getElementById('notifPanel').classList.remove('show');
         if(it.view==='approvals'){ switchToView('approvals'); }
-        else { openModal(it.t.id); }
+        else { openModal(it.t.id, {focusLog:true}); }
       });
     });
   }
@@ -1210,7 +1218,8 @@
   }
 
   // ---------- Modal ----------
-  async function openModal(id){
+  async function openModal(id, opts){
+    opts = opts || {};
     editingId = id || null;
     var overlay = document.getElementById('taskOverlay');
     document.getElementById('modalTitle').textContent = id ? 'แก้ไขงาน' : 'เพิ่มงานใหม่';
@@ -1261,6 +1270,12 @@
       overlay.classList.add('show');
       var logs = await fetchLogs(id);
       renderLogList(logs);
+      if(opts.focusLog){
+        setTimeout(function(){
+          var sec = document.getElementById('logSection');
+          if(sec && sec.scrollIntoView) sec.scrollIntoView({behavior:'smooth', block:'start'});
+        }, 60);
+      }
     } else {
       document.getElementById('fName').value='';
       document.getElementById('fAssignee').value='';
