@@ -197,12 +197,16 @@
   /* ---------- Team View ---------- */
   .team-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:14px;}
   .team-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);box-shadow:var(--shadow);padding:16px;display:flex;align-items:center;gap:12px;}
+  .team-card-body{flex:1;min-width:0;}
   .team-avatar{width:44px;height:44px;border-radius:50%;background:var(--primary);color:#fff;font-size:15px;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0;}
   .team-name{font-weight:700;font-size:14px;}
   .team-role{font-size:12px;color:var(--text-muted);margin-top:2px;}
   .team-role.role-approver{color:var(--amber);}
   .team-role.role-admin{color:var(--red);}
+  .team-dept-note{font-size:11.5px;color:var(--text-muted);margin-top:2px;}
   .team-lead-note{font-size:11.5px;color:var(--text-muted);margin-top:2px;}
+  .team-card-edit-btn{border:none;background:var(--gray-soft);color:var(--text-muted);font-size:12px;padding:6px 10px;border-radius:8px;flex-shrink:0;cursor:pointer;}
+  .team-card-edit-btn:hover{background:var(--border);color:var(--text);}
   .team-lead-picker{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);box-shadow:var(--shadow);padding:14px 16px;margin-bottom:16px;display:flex;align-items:center;gap:10px;flex-wrap:wrap;}
   .team-lead-picker label{font-size:13px;font-weight:600;color:var(--text-muted);white-space:nowrap;}
   .team-lead-picker select{min-width:200px;}
@@ -264,6 +268,18 @@
 
   .toast{position:fixed;bottom:22px;left:50%;transform:translateX(-50%);background:#1f2430;color:#fff;padding:11px 18px;border-radius:9px;font-size:13px;z-index:200;box-shadow:var(--shadow-lg);opacity:0;pointer-events:none;transition:opacity .2s, transform .2s;max-width:90vw;text-align:center;}
   .toast.show{opacity:1;transform:translateX(-50%) translateY(-6px);}
+  .toast.toast-error{background:#7f1d1d;}
+
+  /* ---------- Global loading indicator ---------- */
+  .global-loading-bar{position:fixed;top:0;left:0;height:3px;width:100%;background:transparent;z-index:600;overflow:hidden;opacity:0;transition:opacity .15s;pointer-events:none;}
+  .global-loading-bar.show{opacity:1;}
+  .global-loading-bar::after{content:'';position:absolute;top:0;left:-30%;width:30%;height:100%;background:var(--primary);animation:loadingBarMove 1s linear infinite;}
+  @keyframes loadingBarMove{
+    0%{left:-30%;}
+    100%{left:100%;}
+  }
+  .offline-banner{position:fixed;top:0;left:0;width:100%;background:var(--amber);color:#fff;font-size:12.5px;font-weight:600;text-align:center;padding:6px 10px;z-index:590;display:none;}
+  .offline-banner.show{display:block;}
 
   #fileImport{display:none;}
   #fImageFile{font-size:13px;max-width:220px;}
@@ -277,6 +293,9 @@
 </style>
 </head>
 <body>
+
+<div class="global-loading-bar" id="globalLoadingBar"></div>
+<div class="offline-banner" id="offlineBanner">📴 ขาดการเชื่อมต่ออินเทอร์เน็ต — การเปลี่ยนแปลงบางอย่างอาจไม่ถูกบันทึกจนกว่าจะเชื่อมต่อใหม่</div>
 
 <!-- ============ AUTH SCREEN ============ -->
 <div class="auth-wrap" id="authScreen">
@@ -526,6 +545,38 @@
   </div>
 </div>
 
+<!-- TEAM MEMBER EDIT MODAL (admin only) -->
+<div class="overlay" id="teamMemberOverlay">
+  <div class="modal" style="max-width:420px;">
+    <div class="modal-head">
+      <h3>แก้ไขข้อมูลทีมงาน</h3>
+      <button class="close-x" id="teamMemberModalClose">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="form-row" style="grid-template-columns:1fr;">
+        <div class="form-group">
+          <label class="required">ชื่อที่แสดง</label>
+          <input type="text" id="tmName" placeholder="ชื่อ-นามสกุล">
+        </div>
+        <div class="form-group">
+          <label>แผนก</label>
+          <input type="text" id="tmDept" placeholder="เช่น ฝ่ายก่อสร้าง, ฝ่ายออกแบบ">
+        </div>
+        <div class="form-group">
+          <label>หัวหน้าทีม</label>
+          <select id="tmLead"><option value="">— ไม่มี / ไม่ระบุ —</option></select>
+        </div>
+      </div>
+    </div>
+    <div class="modal-foot">
+      <div style="display:flex;gap:8px;margin-left:auto;">
+        <button class="btn" id="tmCancel">ยกเลิก</button>
+        <button class="btn btn-primary" id="tmSave">บันทึก</button>
+      </div>
+    </div>
+  </div>
+</div>
+
 <!-- IMAGE LIGHTBOX -->
 <div class="overlay" id="lightboxOverlay" style="z-index:200;align-items:center;">
   <img id="lightboxImg" src="" alt="รูปงาน (ขยาย)">
@@ -637,13 +688,103 @@
     var t = new Date(todayStr()+'T00:00:00');
     return Math.round((d-t)/86400000);
   }
-  function showToast(msg){
+  function showToast(msg, type){
     var t = document.getElementById('toast');
     t.textContent = msg;
-    t.classList.add('show');
+    t.className = 'toast show' + (type==='error' ? ' toast-error' : '');
     clearTimeout(showToast._h);
-    showToast._h = setTimeout(function(){ t.classList.remove('show'); }, 2500);
+    showToast._h = setTimeout(function(){ t.classList.remove('show'); }, type==='error' ? 4000 : 2500);
   }
+
+  // ---------- Reliability helpers (loading feedback, retry, error handling) ----------
+  // These wrap every network call so failures always produce a clear Thai message
+  // instead of a silent crash, and so slow operations always show visible feedback.
+  var busyCount = 0;
+  var busyShowTimer = null;
+  function beginBusy(){
+    busyCount++;
+    if(busyCount===1){
+      clearTimeout(busyShowTimer);
+      busyShowTimer = setTimeout(function(){
+        if(busyCount>0){
+          var bar = document.getElementById('globalLoadingBar');
+          if(bar) bar.classList.add('show');
+        }
+      }, 150); // small delay so quick operations don't flicker
+    }
+  }
+  function endBusy(){
+    busyCount = Math.max(0, busyCount-1);
+    if(busyCount===0){
+      clearTimeout(busyShowTimer);
+      var bar = document.getElementById('globalLoadingBar');
+      if(bar) bar.classList.remove('show');
+    }
+  }
+  function friendlyErrorMessage(err){
+    if(!err) return 'เกิดข้อผิดพลาดที่ไม่ทราบสาเหตุ';
+    var msg = (err && err.message) ? err.message : String(err);
+    if(!navigator.onLine || /Failed to fetch|NetworkError|network|Load failed/i.test(msg)){
+      return 'เชื่อมต่อเครือข่ายไม่ได้ กรุณาตรวจสอบอินเทอร์เน็ตแล้วลองใหม่';
+    }
+    return msg;
+  }
+  function unwrap(res){
+    if(res && res.error) throw new Error(res.error.message || 'เกิดข้อผิดพลาด');
+    return res;
+  }
+  // Retries a READ-ONLY call once after a short delay on transient network failure.
+  // Never used for inserts/updates/deletes — retrying a mutation blindly risks
+  // duplicating an action that actually succeeded server-side but whose response
+  // was lost in transit.
+  async function withRetry(fn, retries){
+    retries = retries==null ? 1 : retries;
+    try{
+      return await fn();
+    }catch(err){
+      if(retries>0){
+        await new Promise(function(r){ setTimeout(r, 800); });
+        return withRetry(fn, retries-1);
+      }
+      throw err;
+    }
+  }
+  // Runs an async action tied to a button: disables it (optionally swapping its
+  // label) while in flight, and catches ANY failure — network exception or
+  // {error} response — so it always ends in a visible toast rather than a
+  // silent no-op or an unhandled console error.
+  async function withLoading(btn, loadingLabel, fn){
+    var prevLabel = btn ? btn.textContent : null;
+    if(btn){ btn.disabled = true; if(loadingLabel) btn.textContent = loadingLabel; }
+    beginBusy();
+    try{
+      return await fn();
+    }catch(err){
+      console.error(err);
+      showToast(friendlyErrorMessage(err), 'error');
+      return undefined;
+    }finally{
+      endBusy();
+      if(btn){ btn.disabled = false; if(loadingLabel) btn.textContent = prevLabel; }
+    }
+  }
+
+  window.addEventListener('online', function(){
+    document.getElementById('offlineBanner').classList.remove('show');
+    showToast('เชื่อมต่ออินเทอร์เน็ตแล้ว');
+    if(currentUser) fetchTasks({silent:true});
+  });
+  window.addEventListener('offline', function(){
+    document.getElementById('offlineBanner').classList.add('show');
+  });
+  // Last-resort safety net: any promise rejection we failed to catch explicitly
+  // still surfaces as a visible message instead of failing silently.
+  window.addEventListener('unhandledrejection', function(e){
+    console.error('Unhandled promise rejection:', e.reason);
+    showToast(friendlyErrorMessage(e.reason), 'error');
+    e.preventDefault();
+  });
+
   function isOverdue(task){
     return task.status !== 'done' && task.dueDate && daysDiff(task.dueDate) < 0;
   }
@@ -802,15 +943,32 @@
 
   // ---------- Supabase data access ----------
   async function loadProfile(){
-    var res = await sb.from('profiles').select('*').eq('id', currentUser.id).maybeSingle();
-    currentProfile = res.data || { id: currentUser.id, display_name: currentUser.email, role:'member' };
+    try{
+      var res = unwrap(await withRetry(function(){
+        return sb.from('profiles').select('*').eq('id', currentUser.id).maybeSingle();
+      }));
+      currentProfile = res.data || { id: currentUser.id, display_name: currentUser.email, role:'member' };
+    }catch(err){
+      console.error(err);
+      currentProfile = { id: currentUser.id, display_name: currentUser.email, role:'member' };
+      showToast('โหลดข้อมูลโปรไฟล์ไม่สำเร็จ ใช้ข้อมูลเบื้องต้นชั่วคราว: '+friendlyErrorMessage(err), 'error');
+    }
     var chip = document.getElementById('userChip');
     var roleTxt = currentProfile.role && currentProfile.role!=='member' ? ' ('+currentProfile.role+')' : '';
     chip.textContent = '👤 ' + (currentProfile.display_name || currentUser.email) + roleTxt;
   }
 
   async function loadAllProfiles(){
-    var res = await sb.from('profiles').select('id, display_name, role, team_lead_id').order('display_name', {ascending:true});
+    var res;
+    try{
+      res = unwrap(await withRetry(function(){
+        return sb.from('profiles').select('id, display_name, role, team_lead_id, department').order('display_name', {ascending:true});
+      }));
+    }catch(err){
+      console.error(err);
+      showToast('โหลดรายชื่อทีมงานไม่สำเร็จ: '+friendlyErrorMessage(err), 'error');
+      return;
+    }
     profilesById = {};
     allProfilesList = res.data || [];
     allProfilesList.forEach(function(p){ profilesById[p.id] = p.display_name || p.id.slice(0,8); });
@@ -856,38 +1014,106 @@
       return;
     }
     var roleLabel = { member:'สมาชิก', approver:'ผู้อนุมัติ', admin:'แอดมิน' };
+    var isAdmin = currentProfile && currentProfile.role==='admin';
     grid.innerHTML = allProfilesList.map(function(p){
       var name = p.display_name || p.id.slice(0,8);
       var initials = name.trim().split(/\s+/).map(function(w){return w[0];}).slice(0,2).join('').toUpperCase();
       var isMe = p.id===currentUser.id;
       var role = p.role || 'member';
+      var deptNote = p.department ? '<div class="team-dept-note">แผนก: '+escapeHtml(p.department)+'</div>' : '';
       var leadNote = p.team_lead_id ? '<div class="team-lead-note">หัวหน้าทีม: '+escapeHtml(profileName(p.team_lead_id))+'</div>' : '';
+      var editBtn = isAdmin ? '<button type="button" class="team-card-edit-btn" data-edit-member="'+p.id+'">✎ แก้ไข</button>' : '';
       return '<div class="team-card">'+
         '<div class="team-avatar">'+(initials||'—')+'</div>'+
-        '<div>'+
+        '<div class="team-card-body">'+
           '<div class="team-name">'+escapeHtml(name)+(isMe?' <span style="color:var(--text-muted);font-weight:400;">(คุณ)</span>':'')+'</div>'+
           '<div class="team-role role-'+role+'">'+(roleLabel[role]||role)+'</div>'+
+          deptNote+
           leadNote+
         '</div>'+
+        editBtn+
       '</div>';
     }).join('');
+    Array.prototype.forEach.call(grid.querySelectorAll('[data-edit-member]'), function(btn){
+      btn.addEventListener('click', function(){ openTeamMemberModal(btn.getAttribute('data-edit-member')); });
+    });
   }
 
-  async function fetchTasks(){
-    var res = await sb.from('tasks').select('*').order('created_at', {ascending:false});
-    if(res.error){ showToast('โหลดข้อมูลไม่สำเร็จ: '+res.error.message); return; }
-    allTasks = (res.data||[]).map(rowToTask);
-    renderAll();
+  // ---------- Team member edit (admin only) ----------
+  function openTeamMemberModal(profileId){
+    var p = allProfilesList.find(function(x){ return x.id===profileId; });
+    if(!p){ showToast('ไม่พบข้อมูลสมาชิกทีมนี้', 'error'); return; }
+    document.getElementById('teamMemberOverlay').setAttribute('data-editing-id', profileId);
+    document.getElementById('tmName').value = p.display_name || '';
+    document.getElementById('tmDept').value = p.department || '';
+    var leadSel = document.getElementById('tmLead');
+    leadSel.innerHTML = '<option value="">— ไม่มี / ไม่ระบุ —</option>' + allProfilesList
+      .filter(function(x){ return x.id!==profileId; })
+      .map(function(x){ return '<option value="'+x.id+'">'+escapeHtml(x.display_name||x.id.slice(0,8))+'</option>'; })
+      .join('');
+    leadSel.value = p.team_lead_id || '';
+    document.getElementById('teamMemberOverlay').classList.add('show');
+  }
+
+  function closeTeamMemberModal(){
+    document.getElementById('teamMemberOverlay').classList.remove('show');
+    document.getElementById('teamMemberOverlay').removeAttribute('data-editing-id');
+  }
+
+  async function saveTeamMemberEdit(){
+    var overlay = document.getElementById('teamMemberOverlay');
+    var profileId = overlay.getAttribute('data-editing-id');
+    if(!profileId) return;
+    var name = document.getElementById('tmName').value.trim();
+    if(!name){ showToast('กรุณากรอกชื่อที่แสดง', 'error'); return; }
+    var dept = document.getElementById('tmDept').value.trim();
+    var leadId = document.getElementById('tmLead').value;
+    var btn = document.getElementById('tmSave');
+    await withLoading(btn, 'กำลังบันทึก...', async function(){
+      unwrap(await sb.from('profiles').update({
+        display_name: name,
+        department: dept || null,
+        team_lead_id: leadId || null
+      }).eq('id', profileId));
+      closeTeamMemberModal();
+      showToast('บันทึกข้อมูลทีมงานแล้ว');
+      await loadAllProfiles();
+    });
+  }
+
+  async function fetchTasks(opts){
+    opts = opts || {};
+    if(!opts.silent) beginBusy();
+    try{
+      var res = unwrap(await withRetry(function(){
+        return sb.from('tasks').select('*').order('created_at', {ascending:false});
+      }));
+      allTasks = (res.data||[]).map(rowToTask);
+      renderAll();
+    }catch(err){
+      console.error(err);
+      if(!opts.silent) showToast('โหลดข้อมูลไม่สำเร็จ: '+friendlyErrorMessage(err), 'error');
+    }finally{
+      if(!opts.silent) endBusy();
+    }
   }
 
   async function fetchLogs(taskId){
-    var res = await sb.from('task_updates').select('*').eq('task_id', taskId).order('created_at', {ascending:false});
-    if(res.error) return [];
-    return res.data||[];
+    try{
+      var res = unwrap(await withRetry(function(){
+        return sb.from('task_updates').select('*').eq('task_id', taskId).order('created_at', {ascending:false});
+      }));
+      return res.data||[];
+    }catch(err){
+      console.error(err);
+      return { error:true };
+    }
   }
 
+  // Not retried: a lost response after the insert actually landed would otherwise
+  // duplicate the log entry on retry. Callers decide how to surface the failure.
   async function addLogEntry(taskId, text){
-    await sb.from('task_updates').insert({ task_id:taskId, actor_id:currentUser.id, text:text });
+    unwrap(await sb.from('task_updates').insert({ task_id:taskId, actor_id:currentUser.id, text:text }));
   }
 
   // ---------- Render dispatcher ----------
@@ -963,7 +1189,7 @@
         var id = btn.closest('tr').getAttribute('data-id');
         var act = btn.getAttribute('data-act');
         if(act==='edit') openModal(id);
-        else if(act==='delete') deleteTask(id);
+        else if(act==='delete') deleteTask(id, {btn: btn});
         else if(act==='submit-approval') sendForApproval(id);
       });
     });
@@ -1038,19 +1264,33 @@
     });
   }
 
+  // Shared "update one field, log it, tell the user" pattern used by the
+  // status/approval actions below. Never retried (see addLogEntry note above) —
+  // mutations fail fast and let the user explicitly try again.
+  async function updateTaskAndLog(id, patch, logText, successMsg){
+    unwrap(await sb.from('tasks').update(patch).eq('id', id));
+    if(logText) await addLogEntry(id, logText);
+    if(successMsg) showToast(successMsg);
+  }
+
   async function moveTaskStatus(id, newStatus){
     var task = allTasks.find(function(t){return t.id===id;});
     if(!task || task.status===newStatus) return;
     var wasDone = task.status==='done';
-    var res = await sb.from('tasks').update({ status:newStatus }).eq('id', id);
-    if(res.error){ showToast('อัปเดตไม่สำเร็จ: '+res.error.message); return; }
-    await addLogEntry(id, 'เปลี่ยนสถานะเป็น '+STATUS_LABEL[newStatus]+' (ลากใน Kanban)');
-    if(wasDone && newStatus!=='done' && task.approvalStatus!=='none'){
-      await sb.from('tasks').update({ approval_status:'none' }).eq('id', id);
-      await addLogEntry(id, 'ยกเลิกสถานะอนุมัติ (เปลี่ยนสถานะงานออกจาก Done)');
+    beginBusy();
+    try{
+      await updateTaskAndLog(id, {status:newStatus}, 'เปลี่ยนสถานะเป็น '+STATUS_LABEL[newStatus]+' (ลากใน Kanban)');
+      if(wasDone && newStatus!=='done' && task.approvalStatus!=='none'){
+        await updateTaskAndLog(id, {approval_status:'none'}, 'ยกเลิกสถานะอนุมัติ (เปลี่ยนสถานะงานออกจาก Done)');
+      }
+      showToast('อัปเดตสถานะ "'+task.name+'" เป็น '+STATUS_LABEL[newStatus]);
+    }catch(err){
+      console.error(err);
+      showToast('อัปเดตไม่สำเร็จ: '+friendlyErrorMessage(err), 'error');
+    }finally{
+      await fetchTasks({silent:true}); // re-sync with server truth either way
+      endBusy();
     }
-    showToast('อัปเดตสถานะ "'+task.name+'" เป็น '+STATUS_LABEL[newStatus]);
-    await fetchTasks();
   }
 
   // ---------- Calendar View ----------
@@ -1354,11 +1594,17 @@
   }
 
   async function setMyTeamLead(leadId){
-    var payload = { team_lead_id: leadId || null };
-    var res = await sb.from('profiles').update(payload).eq('id', currentUser.id);
-    if(res.error){ showToast('บันทึกไม่สำเร็จ: '+res.error.message); return; }
-    showToast('บันทึกหัวหน้าทีมแล้ว');
-    await loadAllProfiles();
+    beginBusy();
+    try{
+      unwrap(await sb.from('profiles').update({ team_lead_id: leadId || null }).eq('id', currentUser.id));
+      showToast('บันทึกหัวหน้าทีมแล้ว');
+      await loadAllProfiles();
+    }catch(err){
+      console.error(err);
+      showToast('บันทึกไม่สำเร็จ: '+friendlyErrorMessage(err), 'error');
+    }finally{
+      endBusy();
+    }
   }
 
   // ---------- Approval actions ----------
@@ -1370,27 +1616,42 @@
       openModal(id);
       return;
     }
-    var res = await sb.from('tasks').update({ approval_status:'pending' }).eq('id', id);
-    if(res.error){ showToast('ส่งขออนุมัติไม่สำเร็จ: '+res.error.message); return; }
-    await addLogEntry(id, 'ส่งขออนุมัติงาน ถึง '+profileName(t.approverId));
-    showToast('ส่งขออนุมัติแล้ว');
-    await fetchTasks();
+    beginBusy();
+    try{
+      await updateTaskAndLog(id, {approval_status:'pending'}, 'ส่งขออนุมัติงาน ถึง '+profileName(t.approverId), 'ส่งขออนุมัติแล้ว');
+    }catch(err){
+      console.error(err);
+      showToast('ส่งขออนุมัติไม่สำเร็จ: '+friendlyErrorMessage(err), 'error');
+    }finally{
+      await fetchTasks({silent:true});
+      endBusy();
+    }
   }
   async function approveTask(id){
-    var res = await sb.from('tasks').update({ approval_status:'approved' }).eq('id', id);
-    if(res.error){ showToast('ดำเนินการไม่สำเร็จ: '+res.error.message); return; }
-    await addLogEntry(id, 'อนุมัติงานแล้ว โดย '+(currentProfile?currentProfile.display_name:currentUser.email));
-    showToast('อนุมัติงานแล้ว');
-    await fetchTasks();
+    beginBusy();
+    try{
+      await updateTaskAndLog(id, {approval_status:'approved'}, 'อนุมัติงานแล้ว โดย '+(currentProfile?currentProfile.display_name:currentUser.email), 'อนุมัติงานแล้ว');
+    }catch(err){
+      console.error(err);
+      showToast('ดำเนินการไม่สำเร็จ: '+friendlyErrorMessage(err), 'error');
+    }finally{
+      await fetchTasks({silent:true});
+      endBusy();
+    }
   }
   async function rejectTask(id){
     var reason = prompt('ระบุเหตุผลที่ไม่อนุมัติ (ถ้ามี):','');
     if(reason===null) return;
-    var res = await sb.from('tasks').update({ approval_status:'rejected' }).eq('id', id);
-    if(res.error){ showToast('ดำเนินการไม่สำเร็จ: '+res.error.message); return; }
-    await addLogEntry(id, 'ไม่อนุมัติงาน'+(reason?(' เหตุผล: '+reason):''));
-    showToast('บันทึกผลไม่อนุมัติแล้ว');
-    await fetchTasks();
+    beginBusy();
+    try{
+      await updateTaskAndLog(id, {approval_status:'rejected'}, 'ไม่อนุมัติงาน'+(reason?(' เหตุผล: '+reason):''), 'บันทึกผลไม่อนุมัติแล้ว');
+    }catch(err){
+      console.error(err);
+      showToast('ดำเนินการไม่สำเร็จ: '+friendlyErrorMessage(err), 'error');
+    }finally{
+      await fetchTasks({silent:true});
+      endBusy();
+    }
   }
 
   // ---------- Notifications ----------
@@ -1458,6 +1719,63 @@
     }
   }
 
+  // ---------- Form draft auto-save (prevents losing typed data to a crash/refresh) ----------
+  // Image data is intentionally excluded — it's large and would risk hitting the
+  // localStorage quota, and photos are the least likely thing to be re-typed by
+  // accident, so the text fields are the meaningful thing to protect here.
+  var DRAFT_FIELDS = ['fName','fSupervisor','fAssigneeTag','fFormStatus','fProjectInput','fStart','fDue','fPriorityInput','fApprover','fRemark'];
+  var formOpenSnapshot = null;
+  var draftSaveTimer = null;
+  function draftKey(idOverride){
+    var idPart = (idOverride!==undefined ? idOverride : editingId) || 'new';
+    return 'taskDraft_' + idPart + '_' + (currentUser ? currentUser.id : 'anon');
+  }
+  function serializeForm(){
+    var data = {};
+    DRAFT_FIELDS.forEach(function(fid){
+      var el = document.getElementById(fid);
+      data[fid] = el ? el.value : '';
+    });
+    return data;
+  }
+  function applyFormData(data){
+    DRAFT_FIELDS.forEach(function(fid){
+      var el = document.getElementById(fid);
+      if(el && data[fid]!=null) el.value = data[fid];
+    });
+  }
+  function isFormDirty(){
+    if(!formOpenSnapshot) return false;
+    return JSON.stringify(serializeForm())!==formOpenSnapshot;
+  }
+  function scheduleDraftSave(){
+    clearTimeout(draftSaveTimer);
+    draftSaveTimer = setTimeout(function(){
+      var overlay = document.getElementById('taskOverlay');
+      if(!overlay || !overlay.classList.contains('show')) return;
+      try{
+        if(isFormDirty()){
+          localStorage.setItem(draftKey(), JSON.stringify({ data: serializeForm(), savedAt: Date.now() }));
+        }
+      }catch(e){ /* storage full/unavailable — best-effort only, ignore */ }
+    }, 600);
+  }
+  function clearDraft(idOverride){
+    try{ localStorage.removeItem(draftKey(idOverride)); }catch(e){}
+  }
+  function tryRestoreDraft(){
+    try{
+      var raw = localStorage.getItem(draftKey());
+      if(!raw) return false;
+      var parsed = JSON.parse(raw);
+      if(!parsed || !parsed.data) return false;
+      if(Date.now() - (parsed.savedAt||0) > 7*24*3600*1000){ clearDraft(); return false; } // stale, ignore
+      applyFormData(parsed.data);
+      showToast('กู้คืนแบบร่างที่ยังไม่ได้บันทึกไว้ก่อนหน้าให้แล้ว');
+      return true;
+    }catch(e){ return false; }
+  }
+
   // ---------- Modal ----------
   var READONLY_FIELD_IDS = ['fName','fSupervisor','fAssigneeTag','fFormStatus','fProjectInput','fStart','fDue','fPriorityInput','fApprover','fRemark','fImageFile'];
   function setFormReadOnly(readOnly){
@@ -1482,7 +1800,11 @@
 
     if(id){
       var t = allTasks.find(function(x){return x.id===id;});
-      if(!t) return;
+      if(!t){
+        showToast('ไม่พบงานนี้ อาจถูกลบไปแล้ว', 'error');
+        fetchTasks({silent:true});
+        return;
+      }
       document.getElementById('fName').value = t.name;
       document.getElementById('fSupervisor').value = t.supervisorId || currentUser.id;
       document.getElementById('fAssigneeTag').value = t.assigneeId || '';
@@ -1523,6 +1845,8 @@
 
       document.getElementById('logList').innerHTML = '<div class="notif-empty">กำลังโหลด...</div>';
       overlay.classList.add('show');
+      formOpenSnapshot = JSON.stringify(serializeForm());
+      if(!opts.readOnly && tryRestoreDraft()) formOpenSnapshot = JSON.stringify(serializeForm());
       var logs = await fetchLogs(id);
       renderLogList(logs);
       if(opts.focusLog){
@@ -1546,15 +1870,26 @@
       currentImageData = '';
       hideImagePreview();
       overlay.classList.add('show');
+      formOpenSnapshot = JSON.stringify(serializeForm());
+      if(tryRestoreDraft()) formOpenSnapshot = null; // force isFormDirty()=true so the restored draft isn't lost silently
     }
   }
-  function closeModal(){
+  function closeModal(force){
+    if(!force && isFormDirty()){
+      if(!confirm('คุณมีข้อมูลที่ยังไม่ได้บันทึก ต้องการปิดหน้าต่างนี้โดยไม่บันทึกหรือไม่? (แบบร่างจะยังถูกเก็บไว้ให้)')) return false;
+    }
     document.getElementById('taskOverlay').classList.remove('show');
     editingId = null;
+    formOpenSnapshot = null;
+    return true;
   }
 
   function renderLogList(logs){
     var el = document.getElementById('logList');
+    if(logs && logs.error){
+      el.innerHTML = '<div class="notif-empty">โหลดประวัติไม่สำเร็จ ลองปิดแล้วเปิดใหม่อีกครั้ง</div>';
+      return;
+    }
     if(!logs || logs.length===0){
       el.innerHTML = '<div class="notif-empty">ยังไม่มีประวัติ</div>';
       return;
@@ -1583,43 +1918,61 @@
       image_data: currentImageData || null
     };
     var saveBtn = document.getElementById('btnSave');
+    var prevLabel = saveBtn.textContent;
     saveBtn.disabled = true;
+    saveBtn.textContent = 'กำลังบันทึก...';
+    beginBusy();
     try{
       if(editingId){
         var t = allTasks.find(function(x){return x.id===editingId;});
         var changes = [];
         if(t.status!==payload.status) changes.push('เปลี่ยนสถานะเป็น '+STATUS_LABEL[payload.status]);
         if((t.dueDate||'')!==(payload.due_date||'')) changes.push('เปลี่ยนวันกำหนดส่งเป็น '+displayDate(payload.due_date));
-        var res = await sb.from('tasks').update(payload).eq('id', editingId);
-        if(res.error){ showToast('บันทึกไม่สำเร็จ: '+res.error.message); return; }
+        unwrap(await sb.from('tasks').update(payload).eq('id', editingId));
         if(changes.length) await addLogEntry(editingId, changes.join(', '));
         if(t.status==='done' && payload.status!=='done' && t.approvalStatus!=='none'){
-          await sb.from('tasks').update({ approval_status:'none' }).eq('id', editingId);
-          await addLogEntry(editingId, 'ยกเลิกสถานะอนุมัติ (เปลี่ยนสถานะงานออกจาก Done)');
+          await updateTaskAndLog(editingId, {approval_status:'none'}, 'ยกเลิกสถานะอนุมัติ (เปลี่ยนสถานะงานออกจาก Done)');
         }
+        clearDraft(editingId);
         showToast('บันทึกการแก้ไขแล้ว');
       } else {
         payload.owner_id = currentUser.id;
-        var ins = await sb.from('tasks').insert(payload).select().single();
-        if(ins.error){ showToast('เพิ่มงานไม่สำเร็จ: '+ins.error.message); return; }
+        var ins = unwrap(await sb.from('tasks').insert(payload).select().single());
         await addLogEntry(ins.data.id, 'สร้างงาน');
+        clearDraft('new');
         showToast('เพิ่มงานใหม่แล้ว');
       }
-      closeModal();
-      await fetchTasks();
+      closeModal(true);
+      await fetchTasks({silent:true});
+    }catch(err){
+      console.error(err);
+      showToast('บันทึกไม่สำเร็จ: '+friendlyErrorMessage(err), 'error');
     } finally {
       saveBtn.disabled = false;
+      saveBtn.textContent = prevLabel;
+      endBusy();
     }
   }
 
-  async function deleteTask(id){
+  async function deleteTask(id, opts){
+    opts = opts || {};
     var t = allTasks.find(function(x){return x.id===id;});
     if(!t) return;
     if(!confirm('ลบงาน "'+t.name+'" ใช่หรือไม่?')) return;
-    var res = await sb.from('tasks').delete().eq('id', id);
-    if(res.error){ showToast('ลบไม่สำเร็จ: '+res.error.message); return; }
-    showToast('ลบงานแล้ว');
-    await fetchTasks();
+    if(opts.btn) opts.btn.disabled = true; // guard against a rapid double-click firing two deletes
+    beginBusy();
+    try{
+      unwrap(await sb.from('tasks').delete().eq('id', id));
+      clearDraft(id);
+      showToast('ลบงานแล้ว');
+      await fetchTasks({silent:true});
+    }catch(err){
+      console.error(err);
+      showToast('ลบไม่สำเร็จ: '+friendlyErrorMessage(err), 'error');
+    }finally{
+      endBusy();
+      if(opts.btn) opts.btn.disabled = false;
+    }
   }
 
   // ---------- Export / Import ----------
@@ -1641,31 +1994,40 @@
   function importJSONFile(file){
     var reader = new FileReader();
     reader.onload = async function(){
+      var data, incoming;
       try{
-        var data = JSON.parse(reader.result);
-        var incoming = Array.isArray(data) ? data : data.tasks;
+        data = JSON.parse(reader.result);
+        incoming = Array.isArray(data) ? data : data.tasks;
         if(!Array.isArray(incoming)) throw new Error('bad format');
-        if(!confirm('จะเพิ่มงาน '+incoming.length+' รายการเป็นงานใหม่ของคุณ ต้องการดำเนินการต่อหรือไม่?')) return;
-        var rows = incoming.map(function(o){
-          return {
-            owner_id: currentUser.id,
-            name: o.name||'(ไม่มีชื่อ)',
-            assignee: o.assignee||'',
-            status: ['todo','doing','done'].indexOf(o.status)>-1 ? o.status : 'todo',
-            project: o.project||'',
-            start_date: o.startDate||null,
-            due_date: o.dueDate||null,
-            priority: ['low','medium','high'].indexOf(o.priority)>-1 ? o.priority : 'medium',
-            remark: o.remark||'',
-            image_data: o.imageData || null
-          };
-        });
-        var res = await sb.from('tasks').insert(rows);
-        if(res.error){ showToast('นำเข้าไม่สำเร็จ: '+res.error.message); return; }
-        showToast('นำเข้าข้อมูลสำเร็จ');
-        await fetchTasks();
       }catch(e){
-        showToast('ไฟล์ไม่ถูกต้อง ไม่สามารถนำเข้าได้');
+        showToast('ไฟล์ไม่ถูกต้อง ไม่สามารถอ่านเป็นรายการงานได้', 'error');
+        return;
+      }
+      if(!confirm('จะเพิ่มงาน '+incoming.length+' รายการเป็นงานใหม่ของคุณ ต้องการดำเนินการต่อหรือไม่?')) return;
+      var rows = incoming.map(function(o){
+        return {
+          owner_id: currentUser.id,
+          name: o.name||'(ไม่มีชื่อ)',
+          assignee: o.assignee||'',
+          status: ['todo','doing','done'].indexOf(o.status)>-1 ? o.status : 'todo',
+          project: o.project||'',
+          start_date: o.startDate||null,
+          due_date: o.dueDate||null,
+          priority: ['low','medium','high'].indexOf(o.priority)>-1 ? o.priority : 'medium',
+          remark: o.remark||'',
+          image_data: o.imageData || null
+        };
+      });
+      beginBusy();
+      try{
+        unwrap(await sb.from('tasks').insert(rows));
+        showToast('นำเข้าข้อมูลสำเร็จ');
+        await fetchTasks({silent:true});
+      }catch(err){
+        console.error(err);
+        showToast('นำเข้าไม่สำเร็จ: '+friendlyErrorMessage(err), 'error');
+      }finally{
+        endBusy();
       }
     };
     reader.readAsText(file);
@@ -1700,9 +2062,12 @@
       var btn = document.getElementById('btnLoginSubmit');
       btn.disabled = true;
       try{
-        var res = await sb.auth.signInWithPassword({ email:email, password:password });
+        var res = await withRetry(function(){ return sb.auth.signInWithPassword({ email:email, password:password }); });
         if(res.error){ setAuthMsg('loginMsg', res.error.message, 'error'); return; }
         // onAuthStateChange handles the rest
+      }catch(err){
+        console.error(err);
+        setAuthMsg('loginMsg', friendlyErrorMessage(err), 'error');
       } finally {
         btn.disabled = false;
       }
@@ -1717,9 +2082,8 @@
       var btn = document.getElementById('btnSignupSubmit');
       btn.disabled = true;
       try{
-        var res = await sb.auth.signUp({
-          email:email, password:password,
-          options: { data: { display_name: name } }
+        var res = await withRetry(function(){
+          return sb.auth.signUp({ email:email, password:password, options: { data: { display_name: name } } });
         });
         if(res.error){ setAuthMsg('signupMsg', res.error.message, 'error'); return; }
         if(res.data && res.data.session){
@@ -1728,6 +2092,9 @@
           setAuthMsg('signupMsg', 'สมัครสำเร็จ! กรุณาตรวจสอบอีเมลเพื่อยืนยันบัญชีก่อนเข้าสู่ระบบ', 'info');
           document.getElementById('authTabLogin').click();
         }
+      }catch(err){
+        console.error(err);
+        setAuthMsg('signupMsg', friendlyErrorMessage(err), 'error');
       } finally {
         btn.disabled = false;
       }
@@ -1745,9 +2112,14 @@
     document.getElementById('fPriority').value='';
     switchToView('table'); // reset to a known view — a different account may have left another tab active
     updateTodayBadge();
-    await loadProfile();
-    await loadAllProfiles();
-    await fetchTasks();
+    beginBusy();
+    try{
+      await loadProfile();
+      await loadAllProfiles();
+      await fetchTasks();
+    } finally {
+      endBusy();
+    }
     setTimeout(maybePushBrowserNotification, 1200);
     if(notifIntervalId) clearInterval(notifIntervalId);
     notifIntervalId = setInterval(function(){ updateTodayBadge(); renderNotifications(); }, 60000);
@@ -1777,9 +2149,19 @@
     var btnSaveTeamLead = document.getElementById('btnSaveTeamLead');
     if(btnSaveTeamLead){
       btnSaveTeamLead.addEventListener('click', function(){
-        setMyTeamLead(document.getElementById('fMyTeamLead').value);
+        withLoading(btnSaveTeamLead, 'กำลังบันทึก...', function(){
+          return setMyTeamLead(document.getElementById('fMyTeamLead').value);
+        });
       });
     }
+
+    // Team member edit modal (admin only)
+    document.getElementById('teamMemberModalClose').addEventListener('click', function(){ closeTeamMemberModal(); });
+    document.getElementById('tmCancel').addEventListener('click', function(){ closeTeamMemberModal(); });
+    document.getElementById('tmSave').addEventListener('click', function(){ saveTeamMemberEdit(); });
+    document.getElementById('teamMemberOverlay').addEventListener('click', function(e){
+      if(e.target.id==='teamMemberOverlay') closeTeamMemberModal();
+    });
 
     // Filters
     document.getElementById('fSearch').addEventListener('input', function(e){ filters.search=e.target.value; renderAll(); });
@@ -1789,14 +2171,30 @@
 
     // Modal
     document.getElementById('btnAdd').addEventListener('click', function(){ openModal(null); });
-    document.getElementById('modalClose').addEventListener('click', closeModal);
-    document.getElementById('btnCancel').addEventListener('click', closeModal);
+    document.getElementById('modalClose').addEventListener('click', function(){ closeModal(); });
+    document.getElementById('btnCancel').addEventListener('click', function(){ closeModal(); });
     document.getElementById('btnSave').addEventListener('click', saveTaskFromForm);
     document.getElementById('btnDeleteTask').addEventListener('click', function(){
-      if(editingId){ var id=editingId; closeModal(); deleteTask(id); }
+      if(editingId){ var id=editingId; closeModal(true); deleteTask(id); }
     });
     document.getElementById('taskOverlay').addEventListener('click', function(e){
       if(e.target.id==='taskOverlay') closeModal();
+    });
+    DRAFT_FIELDS.forEach(function(fid){
+      var el = document.getElementById(fid);
+      if(!el) return;
+      el.addEventListener('input', scheduleDraftSave);
+      el.addEventListener('change', scheduleDraftSave);
+    });
+    window.addEventListener('beforeunload', function(e){
+      var overlay = document.getElementById('taskOverlay');
+      if(overlay && overlay.classList.contains('show') && isFormDirty()){
+        e.preventDefault();
+        e.returnValue = '';
+      }
+    });
+    document.addEventListener('visibilitychange', function(){
+      if(document.visibilityState==='visible' && currentUser) fetchTasks({silent:true});
     });
     document.getElementById('fImageFile').addEventListener('change', function(e){
       var file = e.target.files && e.target.files[0];
@@ -1853,16 +2251,20 @@
       if(e.target.files && e.target.files[0]) importJSONFile(e.target.files[0]);
       e.target.value='';
     });
-    document.getElementById('btnClear').addEventListener('click', async function(){
-      if(confirm('ลบงานของคุณทั้งหมด? (แนะนำให้ Export สำรองไว้ก่อน — ไม่กระทบงานของผู้ใช้อื่น)')){
-        var res = await sb.from('tasks').delete().eq('owner_id', currentUser.id);
-        if(res.error){ showToast('ลบไม่สำเร็จ: '+res.error.message); return; }
+    document.getElementById('btnClear').addEventListener('click', function(){
+      if(!confirm('ลบงานของคุณทั้งหมด? (แนะนำให้ Export สำรองไว้ก่อน — ไม่กระทบงานของผู้ใช้อื่น)')) return;
+      var btn = document.getElementById('btnClear');
+      withLoading(btn, 'กำลังลบ...', async function(){
+        unwrap(await sb.from('tasks').delete().eq('owner_id', currentUser.id));
         showToast('ล้างข้อมูลแล้ว');
-        await fetchTasks();
-      }
+        await fetchTasks({silent:true});
+      });
     });
-    document.getElementById('btnLogout').addEventListener('click', async function(){
-      await sb.auth.signOut();
+    document.getElementById('btnLogout').addEventListener('click', function(){
+      var btn = document.getElementById('btnLogout');
+      withLoading(btn, 'กำลังออก...', async function(){
+        unwrap(await sb.auth.signOut());
+      });
     });
 
     // Calendar nav
@@ -1883,17 +2285,19 @@
     });
 
     // periodic refresh so due-date highlights & approvals stay current
-    setInterval(function(){ if(currentUser) fetchTasks(); }, 5*60*1000);
+    setInterval(function(){ if(currentUser) fetchTasks({silent:true}); }, 5*60*1000);
   }
 
   function addLogFromInput(){
     var input = document.getElementById('logInput');
     var text = input.value.trim();
     if(!text || !editingId) return;
-    input.value='';
-    addLogEntry(editingId, text).then(function(){
-      return fetchLogs(editingId);
-    }).then(function(logs){
+    var btn = document.getElementById('btnAddLog');
+    var id = editingId;
+    withLoading(btn, 'กำลังเพิ่ม...', async function(){
+      await addLogEntry(id, text);
+      input.value=''; // only clear once the entry is actually saved
+      var logs = await fetchLogs(id);
       renderLogList(logs);
       showToast('เพิ่มอัปเดตแล้ว');
     });
