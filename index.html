@@ -116,11 +116,26 @@
   .pill-rejected{background:var(--red-soft);color:var(--red);}
   .pill-none{background:var(--gray-soft);color:var(--text-muted);}
 
-  .row-actions{display:flex;gap:4px;align-items:center;flex-wrap:wrap;}
+  .row-actions{display:flex;gap:6px;align-items:center;flex-wrap:wrap;}
   .icon-btn{border:none;background:transparent;padding:5px;border-radius:6px;color:var(--text-muted);display:flex;}
   .icon-btn:hover{background:var(--gray-soft);color:var(--text);}
+  .btn-pill-edit,.btn-pill-del{border:none;border-radius:7px;padding:6px 14px;font-size:12.5px;font-weight:700;color:#fff;}
+  .btn-pill-edit{background:var(--green);}
+  .btn-pill-edit:hover{background:#128a3e;}
+  .btn-pill-del{background:var(--red);}
+  .btn-pill-del:hover{background:#b91c1c;}
   .empty-state{padding:60px 20px;text-align:center;color:var(--text-muted);}
   .empty-state .big{font-size:32px;margin-bottom:8px;}
+
+  /* ---------- Project pills (quick view filter) ---------- */
+  .project-pills{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:14px;}
+  .project-pill{border:1px solid var(--border);background:var(--surface);color:var(--text-muted);padding:8px 16px;border-radius:100px;font-size:13px;font-weight:600;white-space:nowrap;}
+  .project-pill:hover{background:var(--gray-soft);}
+  .project-pill.active{background:var(--primary-soft);border-color:var(--primary);color:var(--primary-dark);}
+  .view-heading{display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;flex-wrap:wrap;gap:10px;}
+  .view-heading h2{margin:0;font-size:19px;}
+  .view-heading .sub{font-size:13px;color:var(--text-muted);}
+  .supervisor-tag{color:#7c3aed;font-weight:700;}
 
   /* ---------- Kanban ---------- */
   .kanban{display:grid;grid-template-columns:repeat(3,1fr);gap:16px;align-items:start;}
@@ -339,11 +354,16 @@
 <main>
   <!-- TABLE VIEW -->
   <section class="view active" id="view-table">
+    <div class="view-heading">
+      <h2>งานทั้งหมด</h2>
+      <span class="sub" id="tableCountSub"></span>
+    </div>
+    <div class="project-pills" id="projectPills"></div>
     <div class="table-wrap">
       <table>
         <thead>
           <tr>
-            <th>Task Name</th><th>วันที่ทำรายการ</th><th>Assignee</th><th>Status</th><th>Project / Site</th>
+            <th>Task Name</th><th>วันที่ทำรายการ</th><th>ผู้ดูแลงาน</th><th>ผู้รับผิดชอบ</th><th>Status</th><th>Project / Site</th>
             <th>รูป</th><th>Due Date</th><th>Priority</th><th>Remark</th><th>Approval</th><th></th>
           </tr>
         </thead>
@@ -424,11 +444,11 @@
           <input type="text" id="fName" placeholder="เช่น ส่งมอบแบบก่อสร้าง">
         </div>
         <div class="form-group">
-          <label>ผู้รับผิดชอบ (ข้อความอิสระ)</label>
-          <input type="text" id="fAssignee" placeholder="ชื่อผู้รับผิดชอบ (ถ้ายังไม่มีบัญชีในระบบ)">
+          <label class="required">ผู้ดูแลงาน</label>
+          <select id="fSupervisor"></select>
         </div>
         <div class="form-group">
-          <label>แท็กทีมงาน (มอบหมายในระบบ)</label>
+          <label>ผู้รับผิดชอบ</label>
           <select id="fAssigneeTag"><option value="">— ไม่ระบุ —</option></select>
         </div>
         <div class="form-group">
@@ -718,6 +738,7 @@
       approvalStatus: row.approval_status || 'none',
       imageData: row.image_data || '',
       assigneeId: row.assignee_id || '',
+      supervisorId: row.supervisor_id || '',
       createdAt: row.created_at
     };
   }
@@ -729,6 +750,10 @@
     if(t.assigneeId) return '<span class="assignee-tag">🏷️ '+escapeHtml(profileName(t.assigneeId))+'</span>'+(t.assignee?' <span style="color:var(--text-muted)">('+escapeHtml(t.assignee)+')</span>':'');
     return escapeHtml(t.assignee||'—');
   }
+  function supervisorDisplay(t){
+    if(t.supervisorId) return '<span class="supervisor-tag">👤 '+escapeHtml(profileName(t.supervisorId))+'</span>';
+    return '—';
+  }
 
   // ---------- Filtering (operates on my own tasks) ----------
   function getFiltered(){
@@ -739,7 +764,8 @@
       if(filters.search){
         var s = filters.search.toLowerCase();
         var taggedName = t.assigneeId ? profileName(t.assigneeId) : '';
-        if(t.name.toLowerCase().indexOf(s)===-1 && t.assignee.toLowerCase().indexOf(s)===-1 && taggedName.toLowerCase().indexOf(s)===-1) return false;
+        var supName = t.supervisorId ? profileName(t.supervisorId) : '';
+        if(t.name.toLowerCase().indexOf(s)===-1 && t.assignee.toLowerCase().indexOf(s)===-1 && taggedName.toLowerCase().indexOf(s)===-1 && supName.toLowerCase().indexOf(s)===-1) return false;
       }
       return true;
     });
@@ -753,6 +779,25 @@
       return '<option value="'+escapeHtml(p)+'">'+escapeHtml(p)+'</option>';
     }).join('');
     sel.value = projects.indexOf(current)>-1 ? current : '';
+  }
+
+  function renderProjectPills(){
+    var wrap = document.getElementById('projectPills');
+    if(!wrap) return;
+    var projects = Array.from(new Set(myTasks().map(function(t){return t.project;}).filter(Boolean))).sort();
+    if(projects.length===0){ wrap.innerHTML=''; return; }
+    var pills = [{v:'', label:'ทั้งหมด'}].concat(projects.map(function(p){ return {v:p, label:p}; }));
+    wrap.innerHTML = pills.map(function(p){
+      var active = filters.project===p.v ? ' active' : '';
+      return '<button type="button" class="project-pill'+active+'" data-project="'+escapeHtml(p.v)+'">'+escapeHtml(p.label)+'</button>';
+    }).join('');
+    Array.prototype.forEach.call(wrap.querySelectorAll('.project-pill'), function(btn){
+      btn.addEventListener('click', function(){
+        filters.project = btn.getAttribute('data-project');
+        document.getElementById('fProject').value = filters.project;
+        renderAll();
+      });
+    });
   }
 
   // ---------- Supabase data access ----------
@@ -779,6 +824,16 @@
         .join('');
       sel.value = current || '';
     });
+
+    var supSel = document.getElementById('fSupervisor');
+    if(supSel){
+      var supCurrent = supSel.value;
+      supSel.innerHTML = allProfilesList.map(function(p){
+        var label = escapeHtml(p.display_name||p.id.slice(0,8)) + (p.id===currentUser.id ? ' (คุณ)' : '');
+        return '<option value="'+p.id+'">'+label+'</option>';
+      }).join('');
+      supSel.value = supCurrent && allProfilesList.some(function(p){return p.id===supCurrent;}) ? supCurrent : currentUser.id;
+    }
 
     var leadSel = document.getElementById('fMyTeamLead');
     if(leadSel){
@@ -838,6 +893,7 @@
   // ---------- Render dispatcher ----------
   function renderAll(){
     refreshProjectFilter();
+    renderProjectPills();
     renderTable();
     renderKanban();
     renderCalendar();
@@ -882,6 +938,7 @@
       return '<tr data-id="'+t.id+'">'+
         '<td class="task-name-cell">'+escapeHtml(t.name)+'</td>'+
         '<td class="created-cell">'+displayDateTime(t.createdAt)+'</td>'+
+        '<td>'+supervisorDisplay(t)+'</td>'+
         '<td>'+assigneeDisplay(t)+'</td>'+
         '<td>'+statusPill+'</td>'+
         '<td>'+escapeHtml(t.project||'—')+'</td>'+
@@ -891,11 +948,14 @@
         '<td class="remark-cell" title="'+escapeHtml(t.remark)+'">'+escapeHtml(t.remark||'—')+'</td>'+
         '<td>'+approvalCellHtml(t)+'</td>'+
         '<td><div class="row-actions">'+
-          '<button class="icon-btn" data-act="edit" title="แก้ไข">✏️</button>'+
-          '<button class="icon-btn" data-act="delete" title="ลบ">🗑️</button>'+
+          '<button class="btn-pill-edit" data-act="edit">แก้ไข</button>'+
+          '<button class="btn-pill-del" data-act="delete">ลบ</button>'+
         '</div></td>'+
       '</tr>';
     }).join('');
+
+    var countSub = document.getElementById('tableCountSub');
+    if(countSub) countSub.textContent = list.length+' รายการ';
 
     Array.prototype.forEach.call(body.querySelectorAll('button[data-act]'), function(btn){
       btn.addEventListener('click', function(e){
@@ -1399,7 +1459,7 @@
   }
 
   // ---------- Modal ----------
-  var READONLY_FIELD_IDS = ['fName','fAssignee','fAssigneeTag','fFormStatus','fProjectInput','fStart','fDue','fPriorityInput','fApprover','fRemark','fImageFile'];
+  var READONLY_FIELD_IDS = ['fName','fSupervisor','fAssigneeTag','fFormStatus','fProjectInput','fStart','fDue','fPriorityInput','fApprover','fRemark','fImageFile'];
   function setFormReadOnly(readOnly){
     READONLY_FIELD_IDS.forEach(function(fid){
       var el = document.getElementById(fid);
@@ -1424,7 +1484,7 @@
       var t = allTasks.find(function(x){return x.id===id;});
       if(!t) return;
       document.getElementById('fName').value = t.name;
-      document.getElementById('fAssignee').value = t.assignee;
+      document.getElementById('fSupervisor').value = t.supervisorId || currentUser.id;
       document.getElementById('fAssigneeTag').value = t.assigneeId || '';
       document.getElementById('fFormStatus').value = t.status;
       document.getElementById('fProjectInput').value = t.project;
@@ -1473,7 +1533,7 @@
       }
     } else {
       document.getElementById('fName').value='';
-      document.getElementById('fAssignee').value='';
+      document.getElementById('fSupervisor').value=currentUser.id;
       document.getElementById('fAssigneeTag').value='';
       document.getElementById('fFormStatus').value='todo';
       document.getElementById('fProjectInput').value='';
@@ -1511,8 +1571,8 @@
     if(!name){ showToast('กรุณาระบุชื่องาน'); return; }
     var payload = {
       name: name,
-      assignee: document.getElementById('fAssignee').value.trim(),
       assignee_id: document.getElementById('fAssigneeTag').value || null,
+      supervisor_id: document.getElementById('fSupervisor').value || currentUser.id,
       status: document.getElementById('fFormStatus').value,
       project: document.getElementById('fProjectInput').value.trim(),
       start_date: document.getElementById('fStart').value || null,

@@ -75,6 +75,7 @@ create table if not exists public.tasks (
   approval_status text not null default 'none' check (approval_status in ('none','pending','approved','rejected')),
   image_data text,
   assignee_id uuid references auth.users(id) on delete set null,
+  supervisor_id uuid references auth.users(id) on delete set null,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
 );
@@ -82,10 +83,12 @@ create table if not exists public.tasks (
 -- ถ้าตาราง tasks มีอยู่แล้วจากการรันสคริปต์นี้รอบก่อน ให้เพิ่มคอลัมน์ที่ขาด (ไม่กระทบข้อมูลเดิม)
 alter table public.tasks add column if not exists image_data text;
 alter table public.tasks add column if not exists assignee_id uuid references auth.users(id) on delete set null;
+alter table public.tasks add column if not exists supervisor_id uuid references auth.users(id) on delete set null;
 
 create index if not exists tasks_owner_idx on public.tasks(owner_id);
 create index if not exists tasks_approver_idx on public.tasks(approver_id);
 create index if not exists tasks_assignee_idx on public.tasks(assignee_id);
+create index if not exists tasks_supervisor_idx on public.tasks(supervisor_id);
 
 alter table public.tasks enable row level security;
 
@@ -97,6 +100,7 @@ create policy "tasks_select_own_or_approver"
     owner_id = auth.uid()
     or approver_id = auth.uid()
     or assignee_id = auth.uid()
+    or supervisor_id = auth.uid()
     or owner_id in (select id from public.profiles where team_lead_id = auth.uid())
   );
 
@@ -110,8 +114,8 @@ drop policy if exists "tasks_update_own_or_approver" on public.tasks;
 create policy "tasks_update_own_or_approver"
   on public.tasks for update
   to authenticated
-  using (owner_id = auth.uid() or approver_id = auth.uid() or assignee_id = auth.uid())
-  with check (owner_id = auth.uid() or approver_id = auth.uid() or assignee_id = auth.uid());
+  using (owner_id = auth.uid() or approver_id = auth.uid() or assignee_id = auth.uid() or supervisor_id = auth.uid())
+  with check (owner_id = auth.uid() or approver_id = auth.uid() or assignee_id = auth.uid() or supervisor_id = auth.uid());
 
 drop policy if exists "tasks_delete_own" on public.tasks;
 create policy "tasks_delete_own"
@@ -155,7 +159,7 @@ create policy "task_updates_select"
       select 1 from public.tasks t
       where t.id = task_updates.task_id
         and (
-          t.owner_id = auth.uid() or t.approver_id = auth.uid() or t.assignee_id = auth.uid()
+          t.owner_id = auth.uid() or t.approver_id = auth.uid() or t.assignee_id = auth.uid() or t.supervisor_id = auth.uid()
           or t.owner_id in (select id from public.profiles where team_lead_id = auth.uid())
         )
     )
@@ -169,7 +173,7 @@ create policy "task_updates_insert"
     exists (
       select 1 from public.tasks t
       where t.id = task_updates.task_id
-        and (t.owner_id = auth.uid() or t.approver_id = auth.uid() or t.assignee_id = auth.uid())
+        and (t.owner_id = auth.uid() or t.approver_id = auth.uid() or t.assignee_id = auth.uid() or t.supervisor_id = auth.uid())
     )
   );
 
