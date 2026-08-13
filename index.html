@@ -137,6 +137,7 @@
   .view-heading .sub{font-size:13px;color:var(--text-muted);}
   #tableScopeSelect{border:1px solid var(--border);border-radius:7px;padding:6px 10px;font-size:13.5px;color:var(--text);background:var(--surface);}
   #tableScopeSelect.other-scope{border-color:var(--primary);color:var(--primary-dark);background:var(--primary-soft);font-weight:600;}
+  .project-badge{display:inline-block;padding:3px 10px;border-radius:6px;font-size:12.5px;font-weight:700;white-space:nowrap;}
   .supervisor-tag{color:#7c3aed;font-weight:700;}
 
   /* ---------- Kanban ---------- */
@@ -366,7 +367,7 @@
     </div>
     <div class="filters" id="filtersBar">
       <input type="text" id="fSearch" placeholder="🔍 ค้นหาชื่องาน / ผู้รับผิดชอบ...">
-      <select id="fStatus"><option value="">ทุกสถานะ</option><option value="todo">To Do</option><option value="doing">Doing</option><option value="done">Done</option></select>
+      <select id="fStatus"><option value="">ทุกสถานะ</option><option value="todo">To Do</option><option value="doing">Doing</option><option value="done">Done</option><option value="overdue">⚠ เกินกำหนด</option></select>
       <select id="fPriority"><option value="">ทุกความสำคัญ</option><option value="high">🔴 ด่วนมาก</option><option value="medium">🟠 ด่วน</option><option value="low">🟢 ตามกำหนด</option></select>
       <select id="fProject"><option value="">ทุกโปรเจกต์</option></select>
     </div>
@@ -388,7 +389,7 @@
       <table>
         <thead>
           <tr>
-            <th>Task Name</th><th>วันที่ทำรายการ</th><th>ผู้ดูแลงาน</th><th>ผู้รับผิดชอบ</th><th>Status</th><th>Project / Site</th>
+            <th>Project / Site</th><th>Task Name</th><th>วันที่ทำรายการ</th><th>ผู้ดูแลงาน</th><th>ผู้รับผิดชอบ</th><th>Status</th>
             <th>รูป</th><th>Due Date</th><th>Priority</th><th>Remark</th><th>Approval</th><th></th>
           </tr>
         </thead>
@@ -882,6 +883,31 @@
     return '<span class="task-thumb-empty">—</span>';
   }
 
+  // Give each distinct project/site name a stable, distinguishable color so
+  // rows are easy to tell apart at a glance in the Table view.
+  var PROJECT_COLOR_PALETTE = [
+    {bg:'#eef0fe', text:'#4338ca'},
+    {bg:'#ecfdf5', text:'#047857'},
+    {bg:'#fff7ed', text:'#c2410c'},
+    {bg:'#fdf2f8', text:'#be185d'},
+    {bg:'#eff6ff', text:'#1d4ed8'},
+    {bg:'#f5f3ff', text:'#6d28d9'},
+    {bg:'#fefce8', text:'#a16207'},
+    {bg:'#f0fdfa', text:'#0f766e'},
+    {bg:'#fef2f2', text:'#b91c1c'},
+    {bg:'#f0f9ff', text:'#0369a1'}
+  ];
+  function projectColor(project){
+    var hash = 0;
+    for(var i=0;i<project.length;i++){ hash = (hash*31 + project.charCodeAt(i)) >>> 0; }
+    return PROJECT_COLOR_PALETTE[hash % PROJECT_COLOR_PALETTE.length];
+  }
+  function projectBadgeHtml(project){
+    if(!project) return '<span style="color:var(--text-muted)">—</span>';
+    var c = projectColor(project);
+    return '<span class="project-badge" style="background:'+c.bg+';color:'+c.text+';">'+escapeHtml(project)+'</span>';
+  }
+
   // ---------- Row <-> Task mapping ----------
   function rowToTask(row){
     return {
@@ -924,7 +950,8 @@
   // ---------- Filtering (operates on the currently viewed scope: me, or a team member) ----------
   function getFiltered(){
     return scopedTasks().filter(function(t){
-      if(filters.status && t.status!==filters.status) return false;
+      if(filters.status==='overdue'){ if(!isOverdue(t)) return false; }
+      else if(filters.status && t.status!==filters.status) return false;
       if(filters.priority && t.priority!==filters.priority) return false;
       if(filters.project && t.project!==filters.project) return false;
       if(filters.search){
@@ -1305,12 +1332,12 @@
             '<button class="btn-pill-del" data-act="delete">ลบ</button>'+
           '</div>';
       return '<tr data-id="'+t.id+'">'+
+        '<td>'+projectBadgeHtml(t.project)+'</td>'+
         '<td class="task-name-cell">'+escapeHtml(t.name)+'</td>'+
         '<td class="created-cell">'+displayDateTime(t.createdAt)+'</td>'+
         '<td>'+supervisorDisplay(t)+'</td>'+
         '<td>'+assigneeDisplay(t)+'</td>'+
         '<td>'+statusPill+'</td>'+
-        '<td>'+escapeHtml(t.project||'—')+'</td>'+
         '<td class="thumb-cell">'+thumbCellHtml(t)+'</td>'+
         '<td>'+displayDate(t.dueDate)+'</td>'+
         '<td><span class="pill pill-'+t.priority+'">'+PRIORITY_LABEL[t.priority]+'</span></td>'+
