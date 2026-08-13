@@ -132,12 +132,26 @@
   .project-pill{border:1px solid var(--border);background:var(--surface);color:var(--text-muted);padding:8px 16px;border-radius:100px;font-size:13px;font-weight:600;white-space:nowrap;}
   .project-pill:hover{background:var(--gray-soft);}
   .project-pill.active{background:var(--primary-soft);border-color:var(--primary);color:var(--primary-dark);}
+  .project-pill-group{display:inline-flex;align-items:center;gap:0;}
+  .project-pill-group .project-pill{border-top-right-radius:0;border-bottom-right-radius:0;border-right:none;}
+  .pill-color-dot{display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:6px;vertical-align:middle;}
+  .project-color-edit{position:relative;width:26px;height:33px;border:1px solid var(--border);border-left:1px dashed var(--border);border-top-right-radius:100px;border-bottom-right-radius:100px;cursor:pointer;overflow:hidden;display:flex;align-items:center;justify-content:center;}
+  .project-color-edit::after{content:'🎨';font-size:10px;filter:drop-shadow(0 0 1px rgba(255,255,255,.8));}
+  .project-color-edit input[type="color"]{position:absolute;inset:-4px;width:calc(100% + 8px);height:calc(100% + 8px);border:none;padding:0;cursor:pointer;opacity:0;}
   .view-heading{display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;flex-wrap:wrap;gap:10px;}
   .view-heading h2{margin:0;font-size:19px;}
   .view-heading .sub{font-size:13px;color:var(--text-muted);}
   #tableScopeSelect{border:1px solid var(--border);border-radius:7px;padding:6px 10px;font-size:13.5px;color:var(--text);background:var(--surface);}
   #tableScopeSelect.other-scope{border-color:var(--primary);color:var(--primary-dark);background:var(--primary-soft);font-weight:600;}
   .project-badge{display:inline-block;padding:3px 10px;border-radius:6px;font-size:12.5px;font-weight:700;white-space:nowrap;}
+  .multi-select-box{border:1px solid var(--border);border-radius:8px;max-height:140px;overflow-y:auto;padding:4px;background:#fff;}
+  .multi-select-box .ms-empty{padding:8px;font-size:12.5px;color:var(--text-muted);}
+  .ms-option{display:flex;align-items:center;gap:8px;padding:6px 8px;border-radius:6px;font-size:13px;cursor:pointer;}
+  .ms-option:hover{background:var(--gray-soft);}
+  .ms-option input{flex-shrink:0;}
+  .ms-option.ms-checked{background:var(--primary-soft);color:var(--primary-dark);font-weight:600;}
+  .multi-select-box[disabled] .ms-option{cursor:not-allowed;color:var(--text-muted);}
+  .multi-select-box[disabled] .ms-option.ms-checked{background:var(--gray-soft);color:var(--text-muted);}
   .supervisor-tag{color:#7c3aed;font-weight:700;}
 
   /* ---------- Kanban ---------- */
@@ -154,6 +168,10 @@
   .kcard-meta{display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap;}
   .kcard-project{font-size:11.5px;color:var(--text-muted);margin-bottom:6px;}
   .avatar{width:22px;height:22px;border-radius:50%;background:var(--primary);color:#fff;font-size:10.5px;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0;}
+  .avatar-stack{display:inline-flex;}
+  .avatar-stack .avatar{border:2px solid var(--surface);margin-left:-7px;}
+  .avatar-stack .avatar:first-child{margin-left:0;}
+  .avatar-stack .avatar.avatar-extra{background:var(--gray-soft);color:var(--text-muted);}
   .kcard-foot{display:flex;align-items:center;justify-content:space-between;margin-top:8px;font-size:11.5px;color:var(--text-muted);flex-wrap:wrap;gap:6px;}
 
   /* ---------- Calendar ---------- */
@@ -249,11 +267,23 @@
 
   .log-section{border-top:1px dashed var(--border);margin-top:16px;padding-top:14px;}
   .log-section h4{margin:0 0 10px;font-size:12.5px;text-transform:uppercase;letter-spacing:.03em;color:var(--text-muted);}
-  .log-add{display:flex;gap:8px;margin-bottom:12px;}
+  .log-add{display:flex;gap:8px;margin-top:10px;}
   .log-add input{flex:1;border:1px solid var(--border);border-radius:8px;padding:8px 10px;font-size:13px;}
-  .log-list{max-height:160px;overflow-y:auto;display:flex;flex-direction:column;gap:8px;}
-  .log-item{background:#fafbfc;border:1px solid var(--border);border-radius:8px;padding:8px 10px;font-size:12.5px;}
-  .log-item .log-ts{color:var(--text-muted);font-size:11px;margin-bottom:2px;}
+  .log-list{max-height:260px;overflow-y:auto;display:flex;flex-direction:column;gap:10px;padding:4px 2px;background:#f8f9fb;border:1px solid var(--border);border-radius:10px;}
+  .log-list:empty{display:none;}
+  .log-item{display:flex;padding:0 10px;}
+  .log-item .log-bubble{max-width:82%;background:#fff;border:1px solid var(--border);border-radius:12px;border-top-left-radius:4px;padding:7px 11px;font-size:12.5px;}
+  .log-item.log-mine{justify-content:flex-end;}
+  .log-item.log-mine .log-bubble{background:var(--primary-soft);border-color:var(--primary);border-top-left-radius:12px;border-top-right-radius:4px;}
+  .log-meta{display:flex;align-items:baseline;gap:6px;margin-bottom:3px;flex-wrap:wrap;}
+  .log-author{font-weight:700;font-size:12px;color:var(--text);}
+  .log-ts{color:var(--text-muted);font-size:10.5px;}
+  .log-text{white-space:pre-wrap;word-break:break-word;}
+  .log-role-tag{font-size:10px;font-weight:700;padding:1px 6px;border-radius:5px;background:var(--gray-soft);color:var(--text-muted);}
+  .log-role-tag.log-role-supervisor{background:#ede9fe;color:#6d28d9;}
+  .log-role-tag.log-role-owner{background:var(--primary-soft);color:var(--primary-dark);}
+  .log-role-tag.log-role-approver{background:var(--green-soft);color:var(--green);}
+  .log-role-tag.log-role-assignee{background:var(--amber-soft);color:var(--amber);}
   .close-x{border:none;background:transparent;font-size:18px;color:var(--text-muted);padding:4px 8px;border-radius:6px;}
   .close-x:hover{background:var(--gray-soft);}
   .gcal-link{color:var(--primary);text-decoration:none;font-size:12.5px;font-weight:600;display:inline-flex;align-items:center;gap:5px;}
@@ -473,9 +503,9 @@
           <label class="required">ผู้ดูแลงาน</label>
           <select id="fSupervisor"></select>
         </div>
-        <div class="form-group">
-          <label>ผู้รับผิดชอบ</label>
-          <select id="fAssigneeTag"><option value="">— ไม่ระบุ —</option></select>
+        <div class="form-group full">
+          <label>ผู้รับผิดชอบ (เลือกได้มากกว่า 1 คน)</label>
+          <div class="multi-select-box" id="fAssigneeMulti"></div>
         </div>
         <div class="form-group">
           <label>สถานะ (Status)</label>
@@ -534,12 +564,12 @@
       </div>
 
       <div class="log-section" id="logSection" style="display:none;">
-        <h4>ประวัติการอัปเดต (Update Log)</h4>
-        <div class="log-add" id="logAddRow">
-          <input type="text" id="logInput" placeholder="พิมพ์อัปเดตความคืบหน้า แล้วกด Enter...">
-          <button class="btn btn-sm" id="btnAddLog">เพิ่ม</button>
-        </div>
+        <h4>💬 ความคิดเห็นและประวัติงาน (Comments)</h4>
         <div class="log-list" id="logList"></div>
+        <div class="log-add" id="logAddRow">
+          <input type="text" id="logInput" placeholder="พิมพ์ความคิดเห็นหรืออัปเดตความคืบหน้า แล้วกด Enter...">
+          <button class="btn btn-sm" id="btnAddLog">ส่ง</button>
+        </div>
       </div>
     </div>
     <div class="modal-foot">
@@ -639,6 +669,8 @@
   var allTasks = [];           // every row visible to me (mine + assigned-to-me-for-approval)
   var currentView = 'table';
   var editingId = null;
+  var currentModalTask = null; // the task object currently open in the modal (for chat role tags)
+  var projectColorOverrides = {}; // project name -> hex color, user-customized (from project_colors table)
   var calYear, calMonth;
   var filters = { search:'', status:'', priority:'', project:'' };
   var viewScopeOwnerId = null; // null = "me"; otherwise a profile id whose tasks the Table view is browsing
@@ -828,7 +860,7 @@
     var endExclusive = addDays(end,1).replace(/-/g,'');
     var text = encodeURIComponent(t.name);
     var details = encodeURIComponent(
-      'ผู้รับผิดชอบ: '+(t.assignee||'-')+'\n'+
+      'ผู้รับผิดชอบ: '+assigneeNamesText(t)+'\n'+
       'สถานะ: '+STATUS_LABEL[t.status]+'\n'+
       'ความสำคัญ: '+PRIORITY_LABEL[t.priority]+
       (t.remark ? ('\nหมายเหตุ: '+t.remark) : '')
@@ -897,7 +929,17 @@
     {bg:'#fef2f2', text:'#b91c1c'},
     {bg:'#f0f9ff', text:'#0369a1'}
   ];
+  function contrastTextColor(hex){
+    hex = (hex||'').replace('#','');
+    if(hex.length===3) hex = hex.split('').map(function(ch){return ch+ch;}).join('');
+    if(hex.length!==6) return '#1f2430';
+    var r = parseInt(hex.substr(0,2),16), g = parseInt(hex.substr(2,2),16), b = parseInt(hex.substr(4,2),16);
+    var luminance = (0.299*r + 0.587*g + 0.114*b) / 255;
+    return luminance > 0.62 ? '#1f2430' : '#ffffff';
+  }
   function projectColor(project){
+    var override = projectColorOverrides[project];
+    if(override) return { bg: override, text: contrastTextColor(override), custom:true };
     var hash = 0;
     for(var i=0;i<project.length;i++){ hash = (hash*31 + project.charCodeAt(i)) >>> 0; }
     return PROJECT_COLOR_PALETTE[hash % PROJECT_COLOR_PALETTE.length];
@@ -906,6 +948,32 @@
     if(!project) return '<span style="color:var(--text-muted)">—</span>';
     var c = projectColor(project);
     return '<span class="project-badge" style="background:'+c.bg+';color:'+c.text+';">'+escapeHtml(project)+'</span>';
+  }
+
+  // ---------- Custom project colors (user-configurable, shared with the whole team) ----------
+  async function loadProjectColors(){
+    try{
+      var res = unwrap(await withRetry(function(){
+        return sb.from('project_colors').select('project, color');
+      }));
+      var map = {};
+      (res.data||[]).forEach(function(row){ map[row.project] = row.color; });
+      projectColorOverrides = map;
+    }catch(err){
+      console.error(err);
+      // Non-fatal — projects just fall back to their auto-assigned color.
+    }
+  }
+
+  async function saveProjectColor(project, color){
+    try{
+      unwrap(await sb.from('project_colors').upsert({ project: project, color: color, updated_by: currentUser.id }, { onConflict: 'project' }));
+      projectColorOverrides[project] = color;
+      renderAll();
+    }catch(err){
+      console.error(err);
+      showToast('บันทึกสีโปรเจกต์ไม่สำเร็จ: '+friendlyErrorMessage(err), 'error');
+    }
   }
 
   // ---------- Row <-> Task mapping ----------
@@ -924,7 +992,9 @@
       approverId: row.approver_id || '',
       approvalStatus: row.approval_status || 'none',
       imageData: row.image_data || '',
-      assigneeId: row.assignee_id || '',
+      assigneeIds: (row.assignee_ids && row.assignee_ids.length) ? row.assignee_ids.slice() : (row.assignee_id ? [row.assignee_id] : []),
+      // Legacy single-assignee id — kept as "first tagged person" for any code path not yet aware of multi-assignee.
+      assigneeId: (row.assignee_ids && row.assignee_ids[0]) || row.assignee_id || '',
       supervisorId: row.supervisor_id || '',
       createdAt: row.created_at
     };
@@ -937,14 +1007,89 @@
     return allTasks.filter(function(t){ return t.ownerId===ownerId; });
   }
   function approvalTasks(){ return allTasks.filter(function(t){ return t.approverId===currentUser.id; }); }
-  function assignedToMeTasks(){ return allTasks.filter(function(t){ return t.assigneeId===currentUser.id && t.ownerId!==currentUser.id; }); }
+  function assignedToMeTasks(){ return allTasks.filter(function(t){ return t.assigneeIds.indexOf(currentUser.id)!==-1 && t.ownerId!==currentUser.id; }); }
+  // Plain-text (no HTML) list of tagged assignee names, for card meta lines, gcal details, tooltips, etc.
+  function assigneeNamesText(t){
+    var names = (t.assigneeIds||[]).map(profileName).filter(Boolean);
+    if(names.length) return names.join(', ');
+    return t.assignee || '—';
+  }
   function assigneeDisplay(t){
-    if(t.assigneeId) return '<span class="assignee-tag">🏷️ '+escapeHtml(profileName(t.assigneeId))+'</span>'+(t.assignee?' <span style="color:var(--text-muted)">('+escapeHtml(t.assignee)+')</span>':'');
+    var ids = t.assigneeIds || [];
+    if(ids.length){
+      var tagsHtml = ids.map(function(id){ return '<span class="assignee-tag">🏷️ '+escapeHtml(profileName(id))+'</span>'; }).join(' ');
+      return tagsHtml + (t.assignee ? ' <span style="color:var(--text-muted)">('+escapeHtml(t.assignee)+')</span>' : '');
+    }
     return escapeHtml(t.assignee||'—');
+  }
+  function avatarInitials(name){
+    return (name||'').trim().split(/\s+/).map(function(w){return w[0];}).slice(0,2).join('').toUpperCase();
+  }
+  // Small overlapping avatar circles for cards (Kanban/Calendar) — shows up to 3, then "+N".
+  function avatarStackHtml(t){
+    var ids = t.assigneeIds || [];
+    if(!ids.length){
+      var fallback = t.assignee || '?';
+      return '<span class="avatar" title="'+escapeHtml(fallback)+'">'+(avatarInitials(fallback)||'—')+'</span>';
+    }
+    var shown = ids.slice(0,3);
+    var html = shown.map(function(id){
+      var name = profileName(id);
+      return '<span class="avatar" title="'+escapeHtml(name)+'">'+(avatarInitials(name)||'—')+'</span>';
+    }).join('');
+    if(ids.length>3){
+      var restNames = ids.slice(3).map(profileName).join(', ');
+      html += '<span class="avatar avatar-extra" title="'+escapeHtml(restNames)+'">+'+(ids.length-3)+'</span>';
+    }
+    return '<span class="avatar-stack">'+html+'</span>';
   }
   function supervisorDisplay(t){
     if(t.supervisorId) return '<span class="supervisor-tag">👤 '+escapeHtml(profileName(t.supervisorId))+'</span>';
     return '—';
+  }
+
+  // ---------- Assignee multi-select (checkbox box in the task modal) ----------
+  function populateAssigneeMulti(selectedIds){
+    var box = document.getElementById('fAssigneeMulti');
+    if(!box) return;
+    var current = selectedIds || getSelectedAssigneeIds();
+    var others = allProfilesList.filter(function(p){ return p.id!==currentUser.id; });
+    if(others.length===0){
+      box.innerHTML = '<div class="ms-empty">ยังไม่มีข้อมูลทีมงาน</div>';
+      return;
+    }
+    box.innerHTML = others.map(function(p){
+      var name = p.display_name || p.id.slice(0,8);
+      var checked = current.indexOf(p.id)>-1;
+      return '<label class="ms-option'+(checked?' ms-checked':'')+'"><input type="checkbox" value="'+p.id+'"'+(checked?' checked':'')+'> '+escapeHtml(name)+'</label>';
+    }).join('');
+    Array.prototype.forEach.call(box.querySelectorAll('input[type=checkbox]'), function(cb){
+      cb.addEventListener('change', function(){
+        cb.closest('.ms-option').classList.toggle('ms-checked', cb.checked);
+        scheduleDraftSave();
+      });
+    });
+  }
+  function getSelectedAssigneeIds(){
+    var box = document.getElementById('fAssigneeMulti');
+    if(!box) return [];
+    return Array.prototype.map.call(box.querySelectorAll('input[type=checkbox]:checked'), function(cb){ return cb.value; });
+  }
+  function setSelectedAssigneeIds(ids){
+    var box = document.getElementById('fAssigneeMulti');
+    if(!box) return;
+    ids = ids || [];
+    Array.prototype.forEach.call(box.querySelectorAll('input[type=checkbox]'), function(cb){
+      var checked = ids.indexOf(cb.value)>-1;
+      cb.checked = checked;
+      cb.closest('.ms-option').classList.toggle('ms-checked', checked);
+    });
+  }
+  function setAssigneeMultiDisabled(disabled){
+    var box = document.getElementById('fAssigneeMulti');
+    if(!box) return;
+    if(disabled) box.setAttribute('disabled','disabled'); else box.removeAttribute('disabled');
+    Array.prototype.forEach.call(box.querySelectorAll('input[type=checkbox]'), function(cb){ cb.disabled = !!disabled; });
   }
 
   // ---------- Filtering (operates on the currently viewed scope: me, or a team member) ----------
@@ -956,9 +1101,9 @@
       if(filters.project && t.project!==filters.project) return false;
       if(filters.search){
         var s = filters.search.toLowerCase();
-        var taggedName = t.assigneeId ? profileName(t.assigneeId) : '';
+        var taggedNames = (t.assigneeIds||[]).map(profileName).join(' ');
         var supName = t.supervisorId ? profileName(t.supervisorId) : '';
-        if(t.name.toLowerCase().indexOf(s)===-1 && t.assignee.toLowerCase().indexOf(s)===-1 && taggedName.toLowerCase().indexOf(s)===-1 && supName.toLowerCase().indexOf(s)===-1) return false;
+        if(t.name.toLowerCase().indexOf(s)===-1 && t.assignee.toLowerCase().indexOf(s)===-1 && taggedNames.toLowerCase().indexOf(s)===-1 && supName.toLowerCase().indexOf(s)===-1) return false;
       }
       return true;
     });
@@ -982,13 +1127,31 @@
     var pills = [{v:'', label:'ทั้งหมด'}].concat(projects.map(function(p){ return {v:p, label:p}; }));
     wrap.innerHTML = pills.map(function(p){
       var active = filters.project===p.v ? ' active' : '';
-      return '<button type="button" class="project-pill'+active+'" data-project="'+escapeHtml(p.v)+'">'+escapeHtml(p.label)+'</button>';
+      if(!p.v){
+        return '<button type="button" class="project-pill'+active+'" data-project="">'+escapeHtml(p.label)+'</button>';
+      }
+      var c = projectColor(p.v);
+      return '<span class="project-pill-group">'+
+        '<button type="button" class="project-pill'+active+'" data-project="'+escapeHtml(p.v)+'">'+
+          '<span class="pill-color-dot" style="background:'+c.bg+';"></span>'+escapeHtml(p.label)+
+        '</button>'+
+        '<label class="project-color-edit" title="ตั้งค่าสีของโปรเจกต์นี้เอง" style="background:'+c.bg+';">'+
+          '<input type="color" data-project-color="'+escapeHtml(p.v)+'" value="'+c.bg+'">'+
+        '</label>'+
+      '</span>';
     }).join('');
-    Array.prototype.forEach.call(wrap.querySelectorAll('.project-pill'), function(btn){
+    Array.prototype.forEach.call(wrap.querySelectorAll('.project-pill[data-project]'), function(btn){
       btn.addEventListener('click', function(){
         filters.project = btn.getAttribute('data-project');
         document.getElementById('fProject').value = filters.project;
         renderAll();
+      });
+    });
+    Array.prototype.forEach.call(wrap.querySelectorAll('input[data-project-color]'), function(inp){
+      inp.addEventListener('click', function(e){ e.stopPropagation(); });
+      inp.addEventListener('change', function(e){
+        e.stopPropagation();
+        saveProjectColor(inp.getAttribute('data-project-color'), inp.value);
       });
     });
   }
@@ -1025,7 +1188,7 @@
     allProfilesList = res.data || [];
     allProfilesList.forEach(function(p){ profilesById[p.id] = p.display_name || p.id.slice(0,8); });
 
-    ['fApprover','fAssigneeTag'].forEach(function(selId){
+    ['fApprover'].forEach(function(selId){
       var sel = document.getElementById(selId);
       var current = sel.value;
       sel.innerHTML = '<option value="">— ไม่ระบุ —</option>' + allProfilesList
@@ -1034,6 +1197,7 @@
         .join('');
       sel.value = current || '';
     });
+    populateAssigneeMulti();
 
     var supSel = document.getElementById('fSupervisor');
     if(supSel){
@@ -1083,6 +1247,14 @@
 
   function isViewingOtherScope(){
     return !!(viewScopeOwnerId && viewScopeOwnerId !== currentUser.id);
+  }
+  // A team lead can edit (not delete) their direct reports' task details, even while
+  // "just browsing" their scope in the Table view — matches the existing SELECT RLS
+  // grant for owner_id in (select id from profiles where team_lead_id = auth.uid()).
+  function isTeamLeadOfScope(){
+    if(!isViewingOtherScope()) return false;
+    var p = allProfilesList.find(function(x){ return x.id===viewScopeOwnerId; });
+    return !!(p && p.team_lead_id===currentUser.id);
   }
 
   function renderTeam(){
@@ -1299,6 +1471,7 @@
 
   function renderTable(){
     var other = isViewingOtherScope();
+    var canEdit = !other || isTeamLeadOfScope();
     updateHeaderActionsForScope();
 
     var scopeSel = document.getElementById('tableScopeSelect');
@@ -1325,12 +1498,14 @@
       var statusPill = overdue
         ? '<span class="pill pill-overdue">⚠ เกินกำหนด</span>'
         : '<span class="pill pill-'+t.status+'">'+STATUS_LABEL[t.status]+'</span>';
-      var actionsCell = other
+      var actionsCell = !canEdit
         ? '<div class="row-actions"><button class="btn-pill-edit" data-act="view">ดู</button></div>'
-        : '<div class="row-actions">'+
-            '<button class="btn-pill-edit" data-act="edit">แก้ไข</button>'+
-            '<button class="btn-pill-del" data-act="delete">ลบ</button>'+
-          '</div>';
+        : (other
+          ? '<div class="row-actions"><button class="btn-pill-edit" data-act="edit">แก้ไข</button></div>'
+          : '<div class="row-actions">'+
+              '<button class="btn-pill-edit" data-act="edit">แก้ไข</button>'+
+              '<button class="btn-pill-del" data-act="delete">ลบ</button>'+
+            '</div>');
       return '<tr data-id="'+t.id+'">'+
         '<td>'+projectBadgeHtml(t.project)+'</td>'+
         '<td class="task-name-cell">'+escapeHtml(t.name)+'</td>'+
@@ -1342,7 +1517,7 @@
         '<td>'+displayDate(t.dueDate)+'</td>'+
         '<td><span class="pill pill-'+t.priority+'">'+PRIORITY_LABEL[t.priority]+'</span></td>'+
         '<td class="remark-cell" title="'+escapeHtml(t.remark)+'">'+escapeHtml(t.remark||'—')+'</td>'+
-        '<td>'+approvalCellHtml(t, other)+'</td>'+
+        '<td>'+approvalCellHtml(t, !canEdit)+'</td>'+
         '<td>'+actionsCell+'</td>'+
       '</tr>';
     }).join('');
@@ -1369,7 +1544,7 @@
     });
     Array.prototype.forEach.call(body.querySelectorAll('tr[data-id]'), function(row){
       row.addEventListener('click', function(){
-        openModal(row.getAttribute('data-id'), {focusLog:true, readOnly: other});
+        openModal(row.getAttribute('data-id'), {focusLog:true, readOnly: !canEdit});
       });
     });
   }
@@ -1386,8 +1561,6 @@
     board.innerHTML = cols.map(function(c){
       var items = list.filter(function(t){return t.status===c.key;});
       var cards = items.map(function(t){
-        var assigneeName = t.assigneeId ? profileName(t.assigneeId) : (t.assignee||'?');
-        var initials = assigneeName.trim().split(/\s+/).map(function(w){return w[0];}).slice(0,2).join('').toUpperCase();
         var overdue = isOverdue(t);
         var footRight = overdue ? '<span style="color:#dc2626;font-weight:700;">⚠ เกินกำหนด</span>' : '<span>ครบกำหนด '+displayDate(t.dueDate)+'</span>';
         var approvalBit = t.status==='done' ? '<span class="pill pill-'+(t.approvalStatus==='none'?'none':t.approvalStatus)+'">'+APPROVAL_LABEL[t.approvalStatus]+'</span>' : '';
@@ -1397,7 +1570,7 @@
           '<div class="kcard-title">'+escapeHtml(t.name)+'</div>'+
           '<div class="kcard-meta">'+
             '<span class="pill pill-'+t.priority+'">'+PRIORITY_LABEL[t.priority]+'</span>'+
-            '<span class="avatar" title="'+escapeHtml(assigneeName||'')+'">'+(initials||'—')+'</span>'+
+            avatarStackHtml(t)+
           '</div>'+
           '<div class="kcard-foot">'+footRight+approvalBit+'</div>'+
         '</div>';
@@ -1641,7 +1814,7 @@
           '<span>เจ้าของงาน: <b>'+escapeHtml(ownerName)+'</b></span>'+
           '<span>โปรเจกต์: <b>'+escapeHtml(t.project||'—')+'</b></span>'+
           '<span>กำหนดส่ง: <b>'+displayDate(t.dueDate)+'</b></span>'+
-          '<span>ผู้รับผิดชอบ: <b>'+escapeHtml(t.assignee||'—')+'</b></span>'+
+          '<span>ผู้รับผิดชอบ: <b>'+escapeHtml(assigneeNamesText(t))+'</b></span>'+
         '</div>'+
         (t.remark ? '<div class="approval-remark">'+escapeHtml(t.remark)+'</div>' : '')+
         actions+
@@ -1891,7 +2064,7 @@
   // Image data is intentionally excluded — it's large and would risk hitting the
   // localStorage quota, and photos are the least likely thing to be re-typed by
   // accident, so the text fields are the meaningful thing to protect here.
-  var DRAFT_FIELDS = ['fName','fSupervisor','fAssigneeTag','fFormStatus','fProjectInput','fStart','fDue','fPriorityInput','fApprover','fRemark'];
+  var DRAFT_FIELDS = ['fName','fSupervisor','fFormStatus','fProjectInput','fStart','fDue','fPriorityInput','fApprover','fRemark'];
   var formOpenSnapshot = null;
   var draftSaveTimer = null;
   function draftKey(idOverride){
@@ -1904,6 +2077,7 @@
       var el = document.getElementById(fid);
       data[fid] = el ? el.value : '';
     });
+    data.fAssigneeMulti = getSelectedAssigneeIds().join(',');
     return data;
   }
   function applyFormData(data){
@@ -1911,6 +2085,7 @@
       var el = document.getElementById(fid);
       if(el && data[fid]!=null) el.value = data[fid];
     });
+    if(data.fAssigneeMulti!=null) setSelectedAssigneeIds(data.fAssigneeMulti ? data.fAssigneeMulti.split(',') : []);
   }
   function isFormDirty(){
     if(!formOpenSnapshot) return false;
@@ -1945,13 +2120,13 @@
   }
 
   // ---------- Modal ----------
-  var READONLY_FIELD_IDS = ['fName','fSupervisor','fAssigneeTag','fFormStatus','fProjectInput','fStart','fDue','fPriorityInput','fApprover','fRemark','fImageFile'];
+  var READONLY_FIELD_IDS = ['fName','fSupervisor','fFormStatus','fProjectInput','fStart','fDue','fPriorityInput','fApprover','fRemark','fImageFile'];
   function setFormReadOnly(readOnly){
     READONLY_FIELD_IDS.forEach(function(fid){
       var el = document.getElementById(fid);
       if(el) el.disabled = !!readOnly;
     });
-    document.getElementById('logAddRow').style.display = readOnly ? 'none' : 'flex';
+    setAssigneeMultiDisabled(!!readOnly);
     document.getElementById('btnSave').style.display = readOnly ? 'none' : 'inline-flex';
   }
 
@@ -1960,8 +2135,12 @@
     editingId = id || null;
     var overlay = document.getElementById('taskOverlay');
     document.getElementById('modalTitle').textContent = opts.readOnly ? 'ดูงาน (อ่านอย่างเดียว)' : (id ? 'แก้ไขงาน' : 'เพิ่มงานใหม่');
-    document.getElementById('btnDeleteTask').style.display = (id && !opts.readOnly) ? 'inline-flex' : 'none';
+    document.getElementById('btnDeleteTask').style.display = 'none';
     document.getElementById('logSection').style.display = id ? 'block' : 'none';
+    // Commenting is independent of the "read-only" field lock: a supervisor/approver/assignee
+    // browsing a task read-only (e.g. an admin looking at a team member's task) should still be
+    // able to leave a dated comment — RLS decides whether the write is actually allowed.
+    document.getElementById('logAddRow').style.display = id ? 'flex' : 'none';
     document.getElementById('approvalSection').style.display = 'none';
     document.getElementById('gcalRow').style.display = 'none';
     setFormReadOnly(!!opts.readOnly);
@@ -1973,9 +2152,12 @@
         fetchTasks({silent:true});
         return;
       }
+      currentModalTask = t;
+      // แก้ไข = ได้ทั้งเจ้าของงาน และหัวหน้าทีมที่กำลังดูงานของลูกทีม, แต่ "ลบ" ให้เฉพาะเจ้าของงานเท่านั้น
+      document.getElementById('btnDeleteTask').style.display = (!opts.readOnly && t.ownerId===currentUser.id) ? 'inline-flex' : 'none';
       document.getElementById('fName').value = t.name;
       document.getElementById('fSupervisor').value = t.supervisorId || currentUser.id;
-      document.getElementById('fAssigneeTag').value = t.assigneeId || '';
+      setSelectedAssigneeIds(t.assigneeIds || []);
       document.getElementById('fFormStatus').value = t.status;
       document.getElementById('fProjectInput').value = t.project;
       document.getElementById('fStart').value = t.startDate;
@@ -2024,9 +2206,10 @@
         }, 60);
       }
     } else {
+      currentModalTask = null;
       document.getElementById('fName').value='';
       document.getElementById('fSupervisor').value=currentUser.id;
-      document.getElementById('fAssigneeTag').value='';
+      setSelectedAssigneeIds([]);
       document.getElementById('fFormStatus').value='todo';
       document.getElementById('fProjectInput').value='';
       document.getElementById('fStart').value=todayStr();
@@ -2048,6 +2231,7 @@
     }
     document.getElementById('taskOverlay').classList.remove('show');
     editingId = null;
+    currentModalTask = null;
     formOpenSnapshot = null;
     return true;
   }
@@ -2059,22 +2243,41 @@
       return;
     }
     if(!logs || logs.length===0){
-      el.innerHTML = '<div class="notif-empty">ยังไม่มีประวัติ</div>';
+      el.innerHTML = '<div class="notif-empty">ยังไม่มีความคิดเห็นหรือประวัติ — พิมพ์ข้อความด้านล่างเพื่อเริ่มพูดคุยเกี่ยวกับงานนี้</div>';
       return;
     }
-    el.innerHTML = logs.map(function(u){
+    // Oldest first, like a chat thread, so the newest message lands at the bottom.
+    var ordered = logs.slice().reverse();
+    el.innerHTML = ordered.map(function(u){
       var dt = new Date(u.created_at);
       var stamp = isNaN(dt) ? u.created_at : (fmtDate(dt) + ' ' + ('0'+dt.getHours()).slice(-2)+':'+('0'+dt.getMinutes()).slice(-2));
-      return '<div class="log-item"><div class="log-ts">'+stamp+'</div>'+escapeHtml(u.text)+'</div>';
+      var isMine = currentUser && u.actor_id === currentUser.id;
+      var roleTag = '';
+      if(currentModalTask){
+        if(u.actor_id && u.actor_id===currentModalTask.supervisorId) roleTag = '<span class="log-role-tag log-role-supervisor">หัวหน้า</span>';
+        else if(u.actor_id && u.actor_id===currentModalTask.ownerId) roleTag = '<span class="log-role-tag log-role-owner">เจ้าของงาน</span>';
+        else if(u.actor_id && u.actor_id===currentModalTask.approverId) roleTag = '<span class="log-role-tag log-role-approver">ผู้อนุมัติ</span>';
+        else if(u.actor_id && currentModalTask.assigneeIds && currentModalTask.assigneeIds.indexOf(u.actor_id)!==-1) roleTag = '<span class="log-role-tag log-role-assignee">ผู้รับผิดชอบ</span>';
+      }
+      var authorName = u.actor_id ? escapeHtml(profileName(u.actor_id)) : 'ระบบ';
+      return '<div class="log-item'+(isMine?' log-mine':'')+'">'+
+        '<div class="log-bubble">'+
+          '<div class="log-meta"><span class="log-author">'+authorName+'</span>'+roleTag+'<span class="log-ts">'+stamp+'</span></div>'+
+          '<div class="log-text">'+escapeHtml(u.text)+'</div>'+
+        '</div>'+
+      '</div>';
     }).join('');
+    el.scrollTop = el.scrollHeight;
   }
 
   async function saveTaskFromForm(){
     var name = document.getElementById('fName').value.trim();
     if(!name){ showToast('กรุณาระบุชื่องาน'); return; }
+    var assigneeIds = getSelectedAssigneeIds();
     var payload = {
       name: name,
-      assignee_id: document.getElementById('fAssigneeTag').value || null,
+      assignee_ids: assigneeIds,
+      assignee_id: assigneeIds[0] || null, // legacy column, kept in sync as "first tagged person"
       supervisor_id: document.getElementById('fSupervisor').value || currentUser.id,
       status: document.getElementById('fFormStatus').value,
       project: document.getElementById('fProjectInput').value.trim(),
@@ -2096,6 +2299,9 @@
         var changes = [];
         if(t.status!==payload.status) changes.push('เปลี่ยนสถานะเป็น '+STATUS_LABEL[payload.status]);
         if((t.dueDate||'')!==(payload.due_date||'')) changes.push('เปลี่ยนวันกำหนดส่งเป็น '+displayDate(payload.due_date));
+        var oldAssigneeKey = (t.assigneeIds||[]).slice().sort().join(',');
+        var newAssigneeKey = assigneeIds.slice().sort().join(',');
+        if(oldAssigneeKey!==newAssigneeKey) changes.push('เปลี่ยนผู้รับผิดชอบเป็น '+(assigneeIds.map(profileName).join(', ')||'ไม่มี'));
         unwrap(await sb.from('tasks').update(payload).eq('id', editingId));
         if(changes.length) await addLogEntry(editingId, changes.join(', '));
         if(t.status==='done' && payload.status!=='done' && t.approvalStatus!=='none'){
@@ -2146,7 +2352,7 @@
   // ---------- Export / Import ----------
   function exportJSON(){
     var data = myTasks().map(function(t){
-      return { name:t.name, assignee:t.assignee, status:t.status, project:t.project, startDate:t.startDate, dueDate:t.dueDate, priority:t.priority, remark:t.remark, imageData:t.imageData||'' };
+      return { name:t.name, assignee:t.assignee, assigneeIds:t.assigneeIds||[], status:t.status, project:t.project, startDate:t.startDate, dueDate:t.dueDate, priority:t.priority, remark:t.remark, imageData:t.imageData||'' };
     });
     var blob = new Blob([JSON.stringify({tasks:data, exportedAt:new Date().toISOString(), note:'ไม่รวมประวัติการอัปเดต'}, null, 2)], {type:'application/json'});
     var url = URL.createObjectURL(blob);
@@ -2177,6 +2383,8 @@
           owner_id: currentUser.id,
           name: o.name||'(ไม่มีชื่อ)',
           assignee: o.assignee||'',
+          assignee_ids: Array.isArray(o.assigneeIds) ? o.assigneeIds : [],
+          assignee_id: Array.isArray(o.assigneeIds) && o.assigneeIds[0] ? o.assigneeIds[0] : null,
           status: ['todo','doing','done'].indexOf(o.status)>-1 ? o.status : 'todo',
           project: o.project||'',
           start_date: o.startDate||null,
@@ -2284,6 +2492,7 @@
     try{
       await loadProfile();
       await loadAllProfiles();
+      await loadProjectColors();
       await fetchTasks();
     } finally {
       endBusy();
