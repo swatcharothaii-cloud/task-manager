@@ -135,6 +135,8 @@
   .view-heading{display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;flex-wrap:wrap;gap:10px;}
   .view-heading h2{margin:0;font-size:19px;}
   .view-heading .sub{font-size:13px;color:var(--text-muted);}
+  #tableScopeSelect{border:1px solid var(--border);border-radius:7px;padding:6px 10px;font-size:13.5px;color:var(--text);background:var(--surface);}
+  #tableScopeSelect.other-scope{border-color:var(--primary);color:var(--primary-dark);background:var(--primary-soft);font-weight:600;}
   .supervisor-tag{color:#7c3aed;font-weight:700;}
 
   /* ---------- Kanban ---------- */
@@ -375,7 +377,10 @@
   <!-- TABLE VIEW -->
   <section class="view active" id="view-table">
     <div class="view-heading">
-      <h2>งานทั้งหมด</h2>
+      <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
+        <h2 id="tableHeading">งานทั้งหมด</h2>
+        <select id="tableScopeSelect" title="เลือกดูงานของ"></select>
+      </div>
       <span class="sub" id="tableCountSub"></span>
     </div>
     <div class="project-pills" id="projectPills"></div>
@@ -391,7 +396,7 @@
       </table>
       <div class="empty-state" id="tableEmpty" style="display:none;">
         <div class="big">🗒️</div>
-        ยังไม่มีงาน — กด "เพิ่มงาน" เพื่อเริ่มต้น
+        <span id="tableEmptyMsg">ยังไม่มีงาน — กด "เพิ่มงาน" เพื่อเริ่มต้น</span>
       </div>
     </div>
   </section>
@@ -635,6 +640,7 @@
   var editingId = null;
   var calYear, calMonth;
   var filters = { search:'', status:'', priority:'', project:'' };
+  var viewScopeOwnerId = null; // null = "me"; otherwise a profile id whose tasks the Table view is browsing
   var appUIInitialized = false;
   var currentImageData = ''; // base64 data URL of the photo attached to the task open in the modal
 
@@ -899,6 +905,11 @@
   }
 
   function myTasks(){ return allTasks.filter(function(t){ return t.ownerId===currentUser.id; }); }
+  // Tasks for whoever the Table view is currently browsing (defaults to "me").
+  function scopedTasks(){
+    var ownerId = viewScopeOwnerId || currentUser.id;
+    return allTasks.filter(function(t){ return t.ownerId===ownerId; });
+  }
   function approvalTasks(){ return allTasks.filter(function(t){ return t.approverId===currentUser.id; }); }
   function assignedToMeTasks(){ return allTasks.filter(function(t){ return t.assigneeId===currentUser.id && t.ownerId!==currentUser.id; }); }
   function assigneeDisplay(t){
@@ -910,9 +921,9 @@
     return '—';
   }
 
-  // ---------- Filtering (operates on my own tasks) ----------
+  // ---------- Filtering (operates on the currently viewed scope: me, or a team member) ----------
   function getFiltered(){
-    return myTasks().filter(function(t){
+    return scopedTasks().filter(function(t){
       if(filters.status && t.status!==filters.status) return false;
       if(filters.priority && t.priority!==filters.priority) return false;
       if(filters.project && t.project!==filters.project) return false;
@@ -929,7 +940,7 @@
   function refreshProjectFilter(){
     var sel = document.getElementById('fProject');
     var current = sel.value;
-    var projects = Array.from(new Set(myTasks().map(function(t){return t.project;}).filter(Boolean))).sort();
+    var projects = Array.from(new Set(scopedTasks().map(function(t){return t.project;}).filter(Boolean))).sort();
     sel.innerHTML = '<option value="">ทุกโปรเจกต์</option>' + projects.map(function(p){
       return '<option value="'+escapeHtml(p)+'">'+escapeHtml(p)+'</option>';
     }).join('');
@@ -939,7 +950,7 @@
   function renderProjectPills(){
     var wrap = document.getElementById('projectPills');
     if(!wrap) return;
-    var projects = Array.from(new Set(myTasks().map(function(t){return t.project;}).filter(Boolean))).sort();
+    var projects = Array.from(new Set(scopedTasks().map(function(t){return t.project;}).filter(Boolean))).sort();
     if(projects.length===0){ wrap.innerHTML=''; return; }
     var pills = [{v:'', label:'ทั้งหมด'}].concat(projects.map(function(p){ return {v:p, label:p}; }));
     wrap.innerHTML = pills.map(function(p){
@@ -1017,7 +1028,34 @@
       leadSel.value = (me && me.team_lead_id) || '';
     }
 
+    populateTableScopeSelect();
     renderTeam();
+  }
+
+  // ---------- Table view scope switcher (view my own tasks, or a team member's, in the same table) ----------
+  function populateTableScopeSelect(){
+    var sel = document.getElementById('tableScopeSelect');
+    if(!sel) return;
+    var others = allProfilesList.filter(function(p){ return p.id!==currentUser.id; });
+    var meLabel = 'ฉัน (' + (currentProfile ? (currentProfile.display_name||currentUser.email) : currentUser.email) + ')';
+    sel.innerHTML = '<option value="">'+escapeHtml(meLabel)+'</option>' + others.map(function(p){
+      return '<option value="'+p.id+'">งานของ '+escapeHtml(p.display_name||p.id.slice(0,8))+'</option>';
+    }).join('');
+    sel.value = (viewScopeOwnerId && others.some(function(p){return p.id===viewScopeOwnerId;})) ? viewScopeOwnerId : '';
+  }
+
+  function setTableScope(profileId){
+    viewScopeOwnerId = profileId || null;
+    filters.project = '';
+    var fProject = document.getElementById('fProject');
+    if(fProject) fProject.value = '';
+    var sel = document.getElementById('tableScopeSelect');
+    if(sel) sel.value = viewScopeOwnerId || '';
+    renderAll();
+  }
+
+  function isViewingOtherScope(){
+    return !!(viewScopeOwnerId && viewScopeOwnerId !== currentUser.id);
   }
 
   function renderTeam(){
@@ -1052,7 +1090,10 @@
       btn.addEventListener('click', function(e){ e.stopPropagation(); openTeamMemberModal(btn.getAttribute('data-edit-member')); });
     });
     Array.prototype.forEach.call(grid.querySelectorAll('[data-view-tasks]'), function(card){
-      card.addEventListener('click', function(){ openMemberTasksModal(card.getAttribute('data-view-tasks')); });
+      card.addEventListener('click', function(){
+        setTableScope(card.getAttribute('data-view-tasks'));
+        switchToView('table');
+      });
     });
   }
 
@@ -1203,10 +1244,10 @@
   }
 
   // ---------- Table View ----------
-  function approvalCellHtml(t){
+  function approvalCellHtml(t, readOnly){
     if(t.status!=='done') return '<span style="color:var(--text-muted)">—</span>';
     if(t.approvalStatus==='none'){
-      return '<button class="btn btn-sm" data-act="submit-approval" title="ส่งขออนุมัติ">📩 ส่งอนุมัติ</button>';
+      return readOnly ? '<span class="pill pill-none">ยังไม่ส่งอนุมัติ</span>' : '<button class="btn btn-sm" data-act="submit-approval" title="ส่งขออนุมัติ">📩 ส่งอนุมัติ</button>';
     }
     if(t.approvalStatus==='pending'){
       return '<span class="pill pill-pending">รออนุมัติ</span>';
@@ -1214,16 +1255,41 @@
     if(t.approvalStatus==='approved'){
       return '<span class="pill pill-approved">✅ อนุมัติแล้ว</span>';
     }
-    return '<span class="pill pill-rejected">❌ ไม่อนุมัติ</span> <button class="icon-btn" data-act="submit-approval" title="ส่งขออนุมัติใหม่">📩</button>';
+    return '<span class="pill pill-rejected">❌ ไม่อนุมัติ</span>' + (readOnly ? '' : ' <button class="icon-btn" data-act="submit-approval" title="ส่งขออนุมัติใหม่">📩</button>');
+  }
+
+  function updateHeaderActionsForScope(){
+    var other = isViewingOtherScope();
+    var ids = ['btnAdd','btnExport','btnImportTrigger','btnClear'];
+    ids.forEach(function(id){
+      var el = document.getElementById(id);
+      if(!el) return;
+      if(!el.hasAttribute('data-default-title')) el.setAttribute('data-default-title', el.getAttribute('title')||'');
+      el.disabled = other;
+      el.title = other ? 'กำลังดูงานของทีมงาน — สลับกลับไปที่ "ฉัน" ก่อนเพื่อใช้งานนี้' : el.getAttribute('data-default-title');
+    });
   }
 
   function renderTable(){
+    var other = isViewingOtherScope();
+    updateHeaderActionsForScope();
+
+    var scopeSel = document.getElementById('tableScopeSelect');
+    if(scopeSel) scopeSel.classList.toggle('other-scope', other);
+
+    var heading = document.getElementById('tableHeading');
+    if(heading) heading.textContent = other ? 'งานของ ' + profileName(viewScopeOwnerId) : 'งานทั้งหมด';
+
     var list = getFiltered();
     var body = document.getElementById('tableBody');
     var empty = document.getElementById('tableEmpty');
     if(list.length===0){
       body.innerHTML = '';
       empty.style.display='block';
+      var emptyMsg = document.getElementById('tableEmptyMsg');
+      if(emptyMsg) emptyMsg.textContent = other
+        ? 'ไม่พบงานของสมาชิกคนนี้ (อาจเป็นเพราะยังไม่มีงาน หรือคุณไม่มีสิทธิ์เข้าถึงงานของเขา)'
+        : 'ยังไม่มีงาน — กด "เพิ่มงาน" เพื่อเริ่มต้น';
       return;
     }
     empty.style.display='none';
@@ -1232,6 +1298,12 @@
       var statusPill = overdue
         ? '<span class="pill pill-overdue">⚠ เกินกำหนด</span>'
         : '<span class="pill pill-'+t.status+'">'+STATUS_LABEL[t.status]+'</span>';
+      var actionsCell = other
+        ? '<div class="row-actions"><button class="btn-pill-edit" data-act="view">ดู</button></div>'
+        : '<div class="row-actions">'+
+            '<button class="btn-pill-edit" data-act="edit">แก้ไข</button>'+
+            '<button class="btn-pill-del" data-act="delete">ลบ</button>'+
+          '</div>';
       return '<tr data-id="'+t.id+'">'+
         '<td class="task-name-cell">'+escapeHtml(t.name)+'</td>'+
         '<td class="created-cell">'+displayDateTime(t.createdAt)+'</td>'+
@@ -1243,11 +1315,8 @@
         '<td>'+displayDate(t.dueDate)+'</td>'+
         '<td><span class="pill pill-'+t.priority+'">'+PRIORITY_LABEL[t.priority]+'</span></td>'+
         '<td class="remark-cell" title="'+escapeHtml(t.remark)+'">'+escapeHtml(t.remark||'—')+'</td>'+
-        '<td>'+approvalCellHtml(t)+'</td>'+
-        '<td><div class="row-actions">'+
-          '<button class="btn-pill-edit" data-act="edit">แก้ไข</button>'+
-          '<button class="btn-pill-del" data-act="delete">ลบ</button>'+
-        '</div></td>'+
+        '<td>'+approvalCellHtml(t, other)+'</td>'+
+        '<td>'+actionsCell+'</td>'+
       '</tr>';
     }).join('');
 
@@ -1260,6 +1329,7 @@
         var id = btn.closest('tr').getAttribute('data-id');
         var act = btn.getAttribute('data-act');
         if(act==='edit') openModal(id);
+        else if(act==='view') openModal(id, {focusLog:true, readOnly:true});
         else if(act==='delete') deleteTask(id, {btn: btn});
         else if(act==='submit-approval') sendForApproval(id);
       });
@@ -1272,7 +1342,7 @@
     });
     Array.prototype.forEach.call(body.querySelectorAll('tr[data-id]'), function(row){
       row.addEventListener('click', function(){
-        openModal(row.getAttribute('data-id'), {focusLog:true});
+        openModal(row.getAttribute('data-id'), {focusLog:true, readOnly: other});
       });
     });
   }
@@ -2239,6 +2309,12 @@
     document.getElementById('memberTasksOverlay').addEventListener('click', function(e){
       if(e.target.id==='memberTasksOverlay') closeMemberTasksModal();
     });
+
+    // Table view scope switcher (view my tasks vs a team member's, in the full table)
+    var scopeSel = document.getElementById('tableScopeSelect');
+    if(scopeSel){
+      scopeSel.addEventListener('change', function(e){ setTableScope(e.target.value); });
+    }
 
     // Filters
     document.getElementById('fSearch').addEventListener('input', function(e){ filters.search=e.target.value; renderAll(); });
