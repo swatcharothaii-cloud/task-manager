@@ -196,7 +196,8 @@
 
   /* ---------- Team View ---------- */
   .team-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:14px;}
-  .team-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);box-shadow:var(--shadow);padding:16px;display:flex;align-items:center;gap:12px;}
+  .team-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);box-shadow:var(--shadow);padding:16px;display:flex;align-items:center;gap:12px;cursor:pointer;}
+  .team-card:hover{border-color:var(--primary);}
   .team-card-body{flex:1;min-width:0;}
   .team-avatar{width:44px;height:44px;border-radius:50%;background:var(--primary);color:#fff;font-size:15px;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0;}
   .team-name{font-weight:700;font-size:14px;}
@@ -573,6 +574,19 @@
         <button class="btn" id="tmCancel">ยกเลิก</button>
         <button class="btn btn-primary" id="tmSave">บันทึก</button>
       </div>
+    </div>
+  </div>
+</div>
+
+<!-- MEMBER TASKS MODAL (click a team card to view that person's tasks) -->
+<div class="overlay" id="memberTasksOverlay">
+  <div class="modal" style="max-width:640px;">
+    <div class="modal-head">
+      <h3 id="memberTasksTitle">งานของทีมงาน</h3>
+      <button class="close-x" id="memberTasksModalClose">✕</button>
+    </div>
+    <div class="modal-body">
+      <div id="memberTasksList"></div>
     </div>
   </div>
 </div>
@@ -1023,7 +1037,7 @@
       var deptNote = p.department ? '<div class="team-dept-note">แผนก: '+escapeHtml(p.department)+'</div>' : '';
       var leadNote = p.team_lead_id ? '<div class="team-lead-note">หัวหน้าทีม: '+escapeHtml(profileName(p.team_lead_id))+'</div>' : '';
       var editBtn = isAdmin ? '<button type="button" class="team-card-edit-btn" data-edit-member="'+p.id+'">✎ แก้ไข</button>' : '';
-      return '<div class="team-card">'+
+      return '<div class="team-card" data-view-tasks="'+p.id+'" title="กดเพื่อดูงานของ '+escapeHtml(name)+'">'+
         '<div class="team-avatar">'+(initials||'—')+'</div>'+
         '<div class="team-card-body">'+
           '<div class="team-name">'+escapeHtml(name)+(isMe?' <span style="color:var(--text-muted);font-weight:400;">(คุณ)</span>':'')+'</div>'+
@@ -1035,7 +1049,10 @@
       '</div>';
     }).join('');
     Array.prototype.forEach.call(grid.querySelectorAll('[data-edit-member]'), function(btn){
-      btn.addEventListener('click', function(){ openTeamMemberModal(btn.getAttribute('data-edit-member')); });
+      btn.addEventListener('click', function(e){ e.stopPropagation(); openTeamMemberModal(btn.getAttribute('data-edit-member')); });
+    });
+    Array.prototype.forEach.call(grid.querySelectorAll('[data-view-tasks]'), function(card){
+      card.addEventListener('click', function(){ openMemberTasksModal(card.getAttribute('data-view-tasks')); });
     });
   }
 
@@ -1078,6 +1095,60 @@
       closeTeamMemberModal();
       showToast('บันทึกข้อมูลทีมงานแล้ว');
       await loadAllProfiles();
+    });
+  }
+
+  // ---------- Member tasks modal (click a team card to view that person's tasks) ----------
+  function openMemberTasksModal(profileId){
+    var p = allProfilesList.find(function(x){ return x.id===profileId; });
+    if(!p){ showToast('ไม่พบข้อมูลสมาชิกทีมนี้', 'error'); return; }
+    document.getElementById('memberTasksTitle').textContent = 'งานของ ' + (p.display_name || p.id.slice(0,8));
+    renderMemberTasksList(profileId);
+    document.getElementById('memberTasksOverlay').classList.add('show');
+  }
+
+  function closeMemberTasksModal(){
+    document.getElementById('memberTasksOverlay').classList.remove('show');
+  }
+
+  function renderMemberTasksList(profileId){
+    var el = document.getElementById('memberTasksList');
+    var list = allTasks.filter(function(t){ return t.ownerId===profileId; }).slice().sort(function(a,b){
+      var da = a.status==='done' ? 1 : 0, db = b.status==='done' ? 1 : 0;
+      if(da!==db) return da-db;
+      return (a.dueDate||'9999').localeCompare(b.dueDate||'9999');
+    });
+    if(list.length===0){
+      el.innerHTML = '<div class="empty-state"><div class="big">📋</div>ไม่พบงานของสมาชิกคนนี้ (อาจเป็นเพราะคุณไม่มีสิทธิ์เข้าถึงงานของเขา)</div>';
+      return;
+    }
+    el.innerHTML = list.map(function(t){
+      var overdue = isOverdue(t);
+      var statusPill = overdue
+        ? '<span class="pill pill-overdue">⚠ เกินกำหนด</span>'
+        : '<span class="pill pill-'+t.status+'">'+STATUS_LABEL[t.status]+'</span>';
+      return '<div class="approval-card" data-id="'+t.id+'" style="cursor:pointer;">'+
+        '<div class="approval-card-head">'+
+          '<div class="approval-card-title">'+escapeHtml(t.name)+'</div>'+
+          '<span class="pill pill-'+t.priority+'">'+PRIORITY_LABEL[t.priority]+'</span>'+
+        '</div>'+
+        (t.imageData ? '<img class="task-thumb" data-img="1" data-id="'+t.id+'" src="'+t.imageData+'" alt="รูปงาน" style="width:64px;height:64px;margin-bottom:8px;">' : '')+
+        '<div class="approval-meta">'+
+          '<span>โปรเจกต์: <b>'+escapeHtml(t.project||'—')+'</b></span>'+
+          '<span>กำหนดส่ง: <b>'+displayDate(t.dueDate)+'</b></span>'+
+          '<span>สถานะ: '+statusPill+'</span>'+
+        '</div>'+
+        (t.remark ? '<div class="approval-remark">'+escapeHtml(t.remark)+'</div>' : '')+
+      '</div>';
+    }).join('');
+    Array.prototype.forEach.call(el.querySelectorAll('img[data-img]'), function(img){
+      img.addEventListener('click', function(e){ e.stopPropagation(); openLightbox(img.getAttribute('src')); });
+    });
+    Array.prototype.forEach.call(el.querySelectorAll('.approval-card[data-id]'), function(card){
+      card.addEventListener('click', function(){
+        closeMemberTasksModal();
+        openModal(card.getAttribute('data-id'), {focusLog:true, readOnly:true});
+      });
     });
   }
 
@@ -2161,6 +2232,12 @@
     document.getElementById('tmSave').addEventListener('click', function(){ saveTeamMemberEdit(); });
     document.getElementById('teamMemberOverlay').addEventListener('click', function(e){
       if(e.target.id==='teamMemberOverlay') closeTeamMemberModal();
+    });
+
+    // Member tasks modal
+    document.getElementById('memberTasksModalClose').addEventListener('click', function(){ closeMemberTasksModal(); });
+    document.getElementById('memberTasksOverlay').addEventListener('click', function(e){
+      if(e.target.id==='memberTasksOverlay') closeMemberTasksModal();
     });
 
     // Filters
