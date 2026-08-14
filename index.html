@@ -106,6 +106,14 @@
   .img-thumb-item img{width:76px;height:76px;object-fit:cover;border-radius:8px;border:1px solid var(--border);display:block;cursor:zoom-in;}
   .img-thumb-remove{position:absolute;top:-6px;right:-6px;width:20px;height:20px;border-radius:100px;background:#dc2626;color:#fff;border:2px solid #fff;font-size:12px;line-height:1;cursor:pointer;display:flex;align-items:center;justify-content:center;padding:0;}
   .img-count-label{font-size:12px;color:var(--text-muted);align-self:center;}
+  .progress-input-row{display:flex;align-items:center;gap:10px;}
+  .progress-input-row input[type=range]{flex:1;}
+  .progress-input-row span{font-size:13px;font-weight:600;min-width:34px;text-align:right;color:var(--text-muted);}
+  .progress-cell{display:flex;align-items:center;gap:6px;min-width:80px;}
+  .progress-bar-track{flex:1;height:6px;border-radius:100px;background:var(--gray-soft);overflow:hidden;min-width:48px;}
+  .progress-bar-fill{height:100%;background:var(--primary,#1d5fd6);border-radius:100px;}
+  .progress-bar-fill.progress-done{background:#16a34a;}
+  .progress-pct-label{font-size:11px;color:var(--text-muted);min-width:30px;text-align:right;}
   #lightboxImg{max-width:90vw;max-height:90vh;border-radius:10px;}
   .lightbox-nav{position:absolute;top:50%;transform:translateY(-50%);background:rgba(0,0,0,0.5);color:#fff;border:none;width:44px;height:44px;border-radius:100px;font-size:22px;cursor:pointer;display:flex;align-items:center;justify-content:center;}
   .lightbox-nav-prev{left:16px;}
@@ -429,7 +437,7 @@
         <thead>
           <tr>
             <th>Project / Site</th><th>Task Name</th><th>วันที่ทำรายการ</th><th>ผู้ดูแลงาน</th><th>ผู้รับผิดชอบ</th><th>Status</th>
-            <th>รูป</th><th>Due Date</th><th>Priority</th><th>Remark</th><th>Approval</th><th></th>
+            <th>% ความคืบหน้า</th><th>รูป</th><th>Due Date</th><th>Priority</th><th>Remark</th><th>Approval</th><th></th>
           </tr>
         </thead>
         <tbody id="tableBody"></tbody>
@@ -523,6 +531,13 @@
             <option value="doing">Doing</option>
             <option value="done">Done</option>
           </select>
+        </div>
+        <div class="form-group">
+          <label>ความคืบหน้า (Progress %)</label>
+          <div class="progress-input-row">
+            <input type="range" id="fProgress" min="0" max="100" step="5" value="0">
+            <span id="fProgressLabel">0%</span>
+          </div>
         </div>
         <div class="form-group full">
           <label>Project / Site</label>
@@ -966,6 +981,14 @@
     var t = allTasks.find(function(x){ return x.id===id; });
     return (t && t.images) ? t.images : [];
   }
+  function progressCellHtml(t){
+    var pct = Math.max(0, Math.min(100, t.progress||0));
+    var fillCls = 'progress-bar-fill' + (pct>=100 ? ' progress-done' : '');
+    return '<div class="progress-cell" title="'+pct+'%">'+
+      '<div class="progress-bar-track"><div class="'+fillCls+'" style="width:'+pct+'%;"></div></div>'+
+      '<span class="progress-pct-label">'+pct+'%</span>'+
+    '</div>';
+  }
   function thumbCellHtml(t){
     if(t.images && t.images.length){
       var badge = t.images.length > 1 ? '<span class="thumb-count-badge">'+t.images.length+'</span>' : '';
@@ -1057,6 +1080,7 @@
       // Legacy single-assignee id — kept as "first tagged person" for any code path not yet aware of multi-assignee.
       assigneeId: (row.assignee_ids && row.assignee_ids[0]) || row.assignee_id || '',
       supervisorId: row.supervisor_id || '',
+      progress: (typeof row.progress==='number') ? row.progress : 0,
       createdAt: row.created_at
     };
   }
@@ -1114,13 +1138,18 @@
     var box = document.getElementById('fAssigneeMulti');
     if(!box) return;
     var current = selectedIds || getSelectedAssigneeIds();
-    var others = allProfilesList.filter(function(p){ return p.id!==currentUser.id; });
+    // เรียงให้ตัวเองขึ้นก่อน แล้วต่อด้วยคนอื่นๆ — ผู้ใช้เลือกตัวเองเป็นผู้รับผิดชอบได้ด้วย
+    var others = allProfilesList.slice().sort(function(a,b){
+      if(a.id===currentUser.id) return -1;
+      if(b.id===currentUser.id) return 1;
+      return 0;
+    });
     if(others.length===0){
       box.innerHTML = '<div class="ms-empty">ยังไม่มีข้อมูลทีมงาน</div>';
       return;
     }
     box.innerHTML = others.map(function(p){
-      var name = p.display_name || p.id.slice(0,8);
+      var name = (p.display_name || p.id.slice(0,8)) + (p.id===currentUser.id ? ' (คุณ)' : '');
       var checked = current.indexOf(p.id)>-1;
       return '<label class="ms-option'+(checked?' ms-checked':'')+'"><input type="checkbox" value="'+p.id+'"'+(checked?' checked':'')+'> '+escapeHtml(name)+'</label>';
     }).join('');
@@ -1262,12 +1291,26 @@
 
     var supSel = document.getElementById('fSupervisor');
     if(supSel){
+      var myTeamLeadId = currentProfile ? currentProfile.team_lead_id : null;
       var supCurrent = supSel.value;
-      supSel.innerHTML = allProfilesList.map(function(p){
-        var label = escapeHtml(p.display_name||p.id.slice(0,8)) + (p.id===currentUser.id ? ' (คุณ)' : '');
+      // เรียงหัวหน้าของคุณ (ถ้ามี) ขึ้นก่อน ตามด้วยตัวเอง แล้วค่อยคนอื่นๆ ตามชื่อ — ให้เลือกหัวหน้าได้ง่ายและชัดเจน
+      var supOptions = allProfilesList.slice().sort(function(a,b){
+        if(myTeamLeadId){
+          if(a.id===myTeamLeadId) return -1;
+          if(b.id===myTeamLeadId) return 1;
+        }
+        if(a.id===currentUser.id) return -1;
+        if(b.id===currentUser.id) return 1;
+        return 0;
+      });
+      supSel.innerHTML = supOptions.map(function(p){
+        var suffix = p.id===currentUser.id ? ' (คุณ)' : (p.id===myTeamLeadId ? ' (หัวหน้าของคุณ)' : '');
+        var label = escapeHtml(p.display_name||p.id.slice(0,8)) + suffix;
         return '<option value="'+p.id+'">'+label+'</option>';
       }).join('');
-      supSel.value = supCurrent && allProfilesList.some(function(p){return p.id===supCurrent;}) ? supCurrent : currentUser.id;
+      // ค่าเริ่มต้น: หัวหน้าของคุณถ้ามี ไม่งั้นค่อยเป็นตัวเอง
+      var supDefault = myTeamLeadId && allProfilesList.some(function(p){return p.id===myTeamLeadId;}) ? myTeamLeadId : currentUser.id;
+      supSel.value = supCurrent && allProfilesList.some(function(p){return p.id===supCurrent;}) ? supCurrent : supDefault;
     }
 
     var leadSel = document.getElementById('fMyTeamLead');
@@ -1574,6 +1617,7 @@
         '<td>'+supervisorDisplay(t)+'</td>'+
         '<td>'+assigneeDisplay(t)+'</td>'+
         '<td>'+statusPill+'</td>'+
+        '<td>'+progressCellHtml(t)+'</td>'+
         '<td class="thumb-cell">'+thumbCellHtml(t)+'</td>'+
         '<td>'+displayDate(t.dueDate)+'</td>'+
         '<td><span class="pill pill-'+t.priority+'">'+PRIORITY_LABEL[t.priority]+'</span></td>'+
@@ -2125,7 +2169,7 @@
   // Image data is intentionally excluded — it's large and would risk hitting the
   // localStorage quota, and photos are the least likely thing to be re-typed by
   // accident, so the text fields are the meaningful thing to protect here.
-  var DRAFT_FIELDS = ['fName','fSupervisor','fFormStatus','fProjectInput','fStart','fDue','fPriorityInput','fApprover','fRemark'];
+  var DRAFT_FIELDS = ['fName','fSupervisor','fFormStatus','fProjectInput','fStart','fDue','fPriorityInput','fApprover','fRemark','fProgress'];
   var formOpenSnapshot = null;
   var draftSaveTimer = null;
   function draftKey(idOverride){
@@ -2147,6 +2191,12 @@
       if(el && data[fid]!=null) el.value = data[fid];
     });
     if(data.fAssigneeMulti!=null) setSelectedAssigneeIds(data.fAssigneeMulti ? data.fAssigneeMulti.split(',') : []);
+    updateProgressLabel();
+  }
+  function updateProgressLabel(){
+    var el = document.getElementById('fProgress');
+    var lbl = document.getElementById('fProgressLabel');
+    if(el && lbl) lbl.textContent = (el.value || 0) + '%';
   }
   function isFormDirty(){
     if(!formOpenSnapshot) return false;
@@ -2181,7 +2231,7 @@
   }
 
   // ---------- Modal ----------
-  var READONLY_FIELD_IDS = ['fName','fSupervisor','fFormStatus','fProjectInput','fStart','fDue','fPriorityInput','fApprover','fRemark','fImageFile'];
+  var READONLY_FIELD_IDS = ['fName','fSupervisor','fFormStatus','fProjectInput','fStart','fDue','fPriorityInput','fApprover','fRemark','fImageFile','fProgress'];
   function setFormReadOnly(readOnly){
     READONLY_FIELD_IDS.forEach(function(fid){
       var el = document.getElementById(fid);
@@ -2226,6 +2276,8 @@
       document.getElementById('fPriorityInput').value = t.priority;
       document.getElementById('fApprover').value = t.approverId || '';
       document.getElementById('fRemark').value = t.remark;
+      document.getElementById('fProgress').value = (typeof t.progress==='number') ? t.progress : 0;
+      updateProgressLabel();
       document.getElementById('fImageFile').value = '';
       modalImagesReadOnly = !!opts.readOnly;
       currentImages = (t.images && t.images.length) ? t.images.slice() : (t.imageData ? [t.imageData] : []);
@@ -2269,7 +2321,8 @@
     } else {
       currentModalTask = null;
       document.getElementById('fName').value='';
-      document.getElementById('fSupervisor').value=currentUser.id;
+      // ค่าเริ่มต้นผู้ดูแลงาน: หัวหน้าของคุณถ้ามี ไม่งั้นค่อยเป็นตัวเอง (แก้ไขเปลี่ยนเป็นคนอื่นได้เสมอ)
+      document.getElementById('fSupervisor').value = (currentProfile && currentProfile.team_lead_id) ? currentProfile.team_lead_id : currentUser.id;
       setSelectedAssigneeIds([]);
       document.getElementById('fFormStatus').value='todo';
       document.getElementById('fProjectInput').value='';
@@ -2278,6 +2331,8 @@
       document.getElementById('fPriorityInput').value='medium';
       document.getElementById('fApprover').value='';
       document.getElementById('fRemark').value='';
+      document.getElementById('fProgress').value = 0;
+      updateProgressLabel();
       document.getElementById('fImageFile').value = '';
       modalImagesReadOnly = false;
       currentImages = [];
@@ -2348,6 +2403,7 @@
       priority: document.getElementById('fPriorityInput').value,
       approver_id: document.getElementById('fApprover').value || null,
       remark: document.getElementById('fRemark').value.trim(),
+      progress: Math.max(0, Math.min(100, parseInt(document.getElementById('fProgress').value, 10) || 0)),
       images: currentImages,
       image_data: currentImages[0] || null // legacy column, kept in sync as "cover photo" for any code path not yet aware of multi-image
     };
@@ -2362,6 +2418,7 @@
         var changes = [];
         if(t.status!==payload.status) changes.push('เปลี่ยนสถานะเป็น '+STATUS_LABEL[payload.status]);
         if((t.dueDate||'')!==(payload.due_date||'')) changes.push('เปลี่ยนวันกำหนดส่งเป็น '+displayDate(payload.due_date));
+        if((t.progress||0)!==payload.progress) changes.push('อัปเดตความคืบหน้าเป็น '+payload.progress+'%');
         var oldAssigneeKey = (t.assigneeIds||[]).slice().sort().join(',');
         var newAssigneeKey = assigneeIds.slice().sort().join(',');
         if(oldAssigneeKey!==newAssigneeKey) changes.push('เปลี่ยนผู้รับผิดชอบเป็น '+(assigneeIds.map(profileName).join(', ')||'ไม่มี'));
@@ -2415,7 +2472,7 @@
   // ---------- Export / Import ----------
   function exportJSON(){
     var data = myTasks().map(function(t){
-      return { name:t.name, assignee:t.assignee, assigneeIds:t.assigneeIds||[], status:t.status, project:t.project, startDate:t.startDate, dueDate:t.dueDate, priority:t.priority, remark:t.remark, images:t.images||[], imageData:t.imageData||'' };
+      return { name:t.name, assignee:t.assignee, assigneeIds:t.assigneeIds||[], status:t.status, project:t.project, startDate:t.startDate, dueDate:t.dueDate, priority:t.priority, progress:t.progress||0, remark:t.remark, images:t.images||[], imageData:t.imageData||'' };
     });
     var blob = new Blob([JSON.stringify({tasks:data, exportedAt:new Date().toISOString(), note:'ไม่รวมประวัติการอัปเดต'}, null, 2)], {type:'application/json'});
     var url = URL.createObjectURL(blob);
@@ -2453,6 +2510,7 @@
           start_date: o.startDate||null,
           due_date: o.dueDate||null,
           priority: ['low','medium','high'].indexOf(o.priority)>-1 ? o.priority : 'medium',
+          progress: (typeof o.progress==='number' && o.progress>=0 && o.progress<=100) ? Math.round(o.progress) : 0,
           remark: o.remark||'',
           images: Array.isArray(o.images) && o.images.length ? o.images.slice(0, MAX_TASK_IMAGES) : (o.imageData ? [o.imageData] : []),
           image_data: (Array.isArray(o.images) && o.images[0]) || o.imageData || null
@@ -2639,6 +2697,7 @@
       el.addEventListener('input', scheduleDraftSave);
       el.addEventListener('change', scheduleDraftSave);
     });
+    document.getElementById('fProgress').addEventListener('input', updateProgressLabel);
     window.addEventListener('beforeunload', function(e){
       var overlay = document.getElementById('taskOverlay');
       if(overlay && overlay.classList.contains('show') && isFormDirty()){
