@@ -98,10 +98,19 @@
   .thumb-cell{width:48px;}
   .task-thumb{width:36px;height:36px;border-radius:8px;object-fit:cover;cursor:zoom-in;border:1px solid var(--border);display:block;}
   .task-thumb-empty{width:36px;height:36px;border-radius:8px;background:var(--gray-soft);color:var(--text-muted);display:flex;align-items:center;justify-content:center;font-size:14px;}
-  .img-upload-row{display:flex;align-items:center;gap:12px;flex-wrap:wrap;}
-  .img-preview-box{position:relative;}
-  #imagePreview{max-width:160px;max-height:120px;border-radius:8px;border:1px solid var(--border);display:block;cursor:zoom-in;}
+  .thumb-cell-wrap{position:relative;display:inline-block;}
+  .thumb-count-badge{position:absolute;bottom:-4px;right:-4px;background:var(--primary,#1d5fd6);color:#fff;font-size:10px;font-weight:700;line-height:1;padding:2px 4px;border-radius:100px;min-width:14px;text-align:center;border:1px solid #fff;}
+  .img-upload-row{display:flex;align-items:flex-start;gap:12px;flex-wrap:wrap;flex-direction:column;}
+  .img-gallery{display:flex;flex-wrap:wrap;gap:8px;}
+  .img-thumb-item{position:relative;width:76px;height:76px;}
+  .img-thumb-item img{width:76px;height:76px;object-fit:cover;border-radius:8px;border:1px solid var(--border);display:block;cursor:zoom-in;}
+  .img-thumb-remove{position:absolute;top:-6px;right:-6px;width:20px;height:20px;border-radius:100px;background:#dc2626;color:#fff;border:2px solid #fff;font-size:12px;line-height:1;cursor:pointer;display:flex;align-items:center;justify-content:center;padding:0;}
+  .img-count-label{font-size:12px;color:var(--text-muted);align-self:center;}
   #lightboxImg{max-width:90vw;max-height:90vh;border-radius:10px;}
+  .lightbox-nav{position:absolute;top:50%;transform:translateY(-50%);background:rgba(0,0,0,0.5);color:#fff;border:none;width:44px;height:44px;border-radius:100px;font-size:22px;cursor:pointer;display:flex;align-items:center;justify-content:center;}
+  .lightbox-nav-prev{left:16px;}
+  .lightbox-nav-next{right:16px;}
+  .lightbox-counter{position:absolute;bottom:16px;left:50%;transform:translateX(-50%);background:rgba(0,0,0,0.5);color:#fff;font-size:13px;padding:4px 12px;border-radius:100px;}
 
   .pill{display:inline-flex;align-items:center;gap:5px;padding:3px 10px;border-radius:100px;font-size:12px;font-weight:700;white-space:nowrap;}
   .pill-todo{background:var(--gray-soft);color:var(--gray);}
@@ -544,13 +553,10 @@
           <textarea id="fRemark" placeholder="หมายเหตุเพิ่มเติม..."></textarea>
         </div>
         <div class="form-group full">
-          <label>รูปงาน (Photo)</label>
+          <label>รูปงาน (Photo) — เพิ่มได้สูงสุด 10 รูป</label>
           <div class="img-upload-row">
-            <input type="file" id="fImageFile" accept="image/*">
-            <div class="img-preview-box" id="imagePreviewWrap" style="display:none;">
-              <img id="imagePreview" alt="รูปงาน">
-            </div>
-            <button type="button" class="btn btn-sm" id="btnRemoveImage" style="display:none;">ลบรูป</button>
+            <input type="file" id="fImageFile" accept="image/*" multiple>
+            <div class="img-gallery" id="imageGallery"></div>
           </div>
         </div>
         <div class="form-group full" id="gcalRow" style="display:none;">
@@ -630,6 +636,9 @@
 <!-- IMAGE LIGHTBOX -->
 <div class="overlay" id="lightboxOverlay" style="z-index:200;align-items:center;">
   <img id="lightboxImg" src="" alt="รูปงาน (ขยาย)">
+  <button type="button" class="lightbox-nav lightbox-nav-prev" id="lightboxPrev" style="display:none;">‹</button>
+  <button type="button" class="lightbox-nav lightbox-nav-next" id="lightboxNext" style="display:none;">›</button>
+  <span class="lightbox-counter" id="lightboxCounter" style="display:none;"></span>
 </div>
 
 </div><!-- /appRoot -->
@@ -675,7 +684,11 @@
   var filters = { search:'', status:'', priority:'', project:'' };
   var viewScopeOwnerId = null; // null = "me"; otherwise a profile id whose tasks the Table view is browsing
   var appUIInitialized = false;
-  var currentImageData = ''; // base64 data URL of the photo attached to the task open in the modal
+  var MAX_TASK_IMAGES = 10;
+  var currentImages = []; // base64 data URLs of the photos attached to the task open in the modal (up to MAX_TASK_IMAGES)
+  var modalImagesReadOnly = false; // whether the currently-open modal allows adding/removing photos
+  var lightboxImages = []; // full image set for whichever task's lightbox is open (for prev/next)
+  var lightboxIndex = 0;
 
   var THAI_MONTHS = ['มกราคม','กุมภาพันธ์','มีนาคม','เมษายน','พฤษภาคม','มิถุนายน','กรกฎาคม','สิงหาคม','กันยายน','ตุลาคม','พฤศจิกายน','ธันวาคม'];
   var DOW_TH = ['อาทิตย์','จันทร์','อังคาร','พุธ','พฤหัสบดี','ศุกร์','เสาร์'];
@@ -889,28 +902,74 @@
     img.onerror = function(){ cb(srcDataUrl); };
     img.src = srcDataUrl;
   }
-  function showImagePreview(dataUrl){
-    document.getElementById('imagePreview').src = dataUrl;
-    document.getElementById('imagePreviewWrap').style.display = 'block';
-    document.getElementById('btnRemoveImage').style.display = 'inline-flex';
+  // Renders the up-to-MAX_TASK_IMAGES gallery inside the task detail modal, with a
+  // per-photo remove button (hidden in read-only mode) and a running count label.
+  function renderImageGallery(){
+    var wrap = document.getElementById('imageGallery');
+    if(!wrap) return;
+    if(!currentImages.length){
+      wrap.innerHTML = modalImagesReadOnly ? '<span class="img-count-label">ไม่มีรูปภาพ</span>' : '';
+      return;
+    }
+    wrap.innerHTML = currentImages.map(function(src, i){
+      return '<div class="img-thumb-item">'+
+          '<img src="'+src+'" data-idx="'+i+'" alt="รูปงาน '+(i+1)+'">'+
+          (modalImagesReadOnly ? '' : '<button type="button" class="img-thumb-remove" data-idx="'+i+'" title="ลบรูปนี้">×</button>')+
+        '</div>';
+    }).join('') + '<span class="img-count-label">'+currentImages.length+'/'+MAX_TASK_IMAGES+' รูป</span>';
+    Array.prototype.forEach.call(wrap.querySelectorAll('.img-thumb-item img'), function(img){
+      img.addEventListener('click', function(){ openLightbox(currentImages, parseInt(img.getAttribute('data-idx'), 10)); });
+    });
+    Array.prototype.forEach.call(wrap.querySelectorAll('.img-thumb-remove'), function(btn){
+      btn.addEventListener('click', function(e){
+        e.stopPropagation();
+        currentImages.splice(parseInt(btn.getAttribute('data-idx'), 10), 1);
+        renderImageGallery();
+      });
+    });
   }
-  function hideImagePreview(){
-    document.getElementById('imagePreview').src = '';
-    document.getElementById('imagePreviewWrap').style.display = 'none';
-    document.getElementById('btnRemoveImage').style.display = 'none';
-  }
-  function openLightbox(dataUrl){
-    if(!dataUrl) return;
-    document.getElementById('lightboxImg').src = dataUrl;
+  // Opens the lightbox on a specific image within a task's full photo set, with
+  // prev/next navigation when there's more than one. Also accepts a bare string
+  // for any legacy single-image call site.
+  function openLightbox(images, index){
+    var arr = Array.isArray(images) ? images.filter(Boolean) : (images ? [images] : []);
+    if(!arr.length) return;
+    lightboxImages = arr;
+    lightboxIndex = Math.max(0, Math.min(index || 0, arr.length - 1));
+    renderLightboxImage();
     document.getElementById('lightboxOverlay').classList.add('show');
+  }
+  function renderLightboxImage(){
+    document.getElementById('lightboxImg').src = lightboxImages[lightboxIndex] || '';
+    var multi = lightboxImages.length > 1;
+    document.getElementById('lightboxPrev').style.display = multi ? 'flex' : 'none';
+    document.getElementById('lightboxNext').style.display = multi ? 'flex' : 'none';
+    var counter = document.getElementById('lightboxCounter');
+    counter.style.display = multi ? 'block' : 'none';
+    counter.textContent = (lightboxIndex + 1) + ' / ' + lightboxImages.length;
+  }
+  function lightboxStep(delta){
+    if(!lightboxImages.length) return;
+    lightboxIndex = (lightboxIndex + delta + lightboxImages.length) % lightboxImages.length;
+    renderLightboxImage();
   }
   function closeLightbox(){
     document.getElementById('lightboxOverlay').classList.remove('show');
     document.getElementById('lightboxImg').src = '';
+    lightboxImages = [];
+    lightboxIndex = 0;
+  }
+  // Looks up a task's full photo set by id, for click handlers on a thumbnail
+  // <img> (which only carries the cover photo in its src) so the lightbox can
+  // open with every photo available for prev/next browsing.
+  function imagesForTaskId(id){
+    var t = allTasks.find(function(x){ return x.id===id; });
+    return (t && t.images) ? t.images : [];
   }
   function thumbCellHtml(t){
-    if(t.imageData){
-      return '<img class="task-thumb" data-img="1" data-id="'+t.id+'" src="'+t.imageData+'" alt="รูปงาน">';
+    if(t.images && t.images.length){
+      var badge = t.images.length > 1 ? '<span class="thumb-count-badge">'+t.images.length+'</span>' : '';
+      return '<span class="thumb-cell-wrap"><img class="task-thumb" data-img="1" data-id="'+t.id+'" src="'+t.images[0]+'" alt="รูปงาน">'+badge+'</span>';
     }
     return '<span class="task-thumb-empty">—</span>';
   }
@@ -991,7 +1050,9 @@
       remark: row.remark || '',
       approverId: row.approver_id || '',
       approvalStatus: row.approval_status || 'none',
-      imageData: row.image_data || '',
+      images: (Array.isArray(row.images) && row.images.length) ? row.images.slice() : (row.image_data ? [row.image_data] : []),
+      // Legacy single "cover photo" — kept for any code path not yet aware of multi-image.
+      imageData: (Array.isArray(row.images) && row.images[0]) || row.image_data || '',
       assigneeIds: (row.assignee_ids && row.assignee_ids.length) ? row.assignee_ids.slice() : (row.assignee_id ? [row.assignee_id] : []),
       // Legacy single-assignee id — kept as "first tagged person" for any code path not yet aware of multi-assignee.
       assigneeId: (row.assignee_ids && row.assignee_ids[0]) || row.assignee_id || '',
@@ -1382,7 +1443,7 @@
       '</div>';
     }).join('');
     Array.prototype.forEach.call(el.querySelectorAll('img[data-img]'), function(img){
-      img.addEventListener('click', function(e){ e.stopPropagation(); openLightbox(img.getAttribute('src')); });
+      img.addEventListener('click', function(e){ e.stopPropagation(); openLightbox(imagesForTaskId(img.getAttribute('data-id')), 0); });
     });
     Array.prototype.forEach.call(el.querySelectorAll('.approval-card[data-id]'), function(card){
       card.addEventListener('click', function(){
@@ -1539,7 +1600,7 @@
     Array.prototype.forEach.call(body.querySelectorAll('img[data-img]'), function(img){
       img.addEventListener('click', function(e){
         e.stopPropagation();
-        openLightbox(img.getAttribute('src'));
+        openLightbox(imagesForTaskId(img.getAttribute('data-id')), 0);
       });
     });
     Array.prototype.forEach.call(body.querySelectorAll('tr[data-id]'), function(row){
@@ -1583,7 +1644,7 @@
 
     Array.prototype.forEach.call(board.querySelectorAll('.kcard'), function(card){
       card.addEventListener('click', function(e){
-        if(e.target && e.target.getAttribute && e.target.getAttribute('data-img')){ e.stopPropagation(); openLightbox(e.target.getAttribute('src')); return; }
+        if(e.target && e.target.getAttribute && e.target.getAttribute('data-img')){ e.stopPropagation(); openLightbox(imagesForTaskId(e.target.getAttribute('data-id')), 0); return; }
         openModal(card.getAttribute('data-id'), {focusLog:true});
       });
       card.addEventListener('dragstart', function(e){
@@ -1768,7 +1829,7 @@
     }).join('');
 
     Array.prototype.forEach.call(el.querySelectorAll('img[data-img]'), function(img){
-      img.addEventListener('click', function(e){ e.stopPropagation(); openLightbox(img.getAttribute('src')); });
+      img.addEventListener('click', function(e){ e.stopPropagation(); openLightbox(imagesForTaskId(img.getAttribute('data-id')), 0); });
     });
     Array.prototype.forEach.call(el.querySelectorAll('.approval-card[data-id]'), function(card){
       card.addEventListener('click', function(){ openModal(card.getAttribute('data-id'), {focusLog:true}); });
@@ -1822,7 +1883,7 @@
     }).join('');
 
     Array.prototype.forEach.call(el.querySelectorAll('img[data-img]'), function(img){
-      img.addEventListener('click', function(){ openLightbox(img.getAttribute('src')); });
+      img.addEventListener('click', function(){ openLightbox(imagesForTaskId(img.getAttribute('data-id')), 0); });
     });
     Array.prototype.forEach.call(el.querySelectorAll('button[data-act]'), function(btn){
       btn.addEventListener('click', function(){
@@ -1927,7 +1988,7 @@
     }).join('');
 
     Array.prototype.forEach.call(el.querySelectorAll('img[data-img]'), function(img){
-      img.addEventListener('click', function(e){ e.stopPropagation(); openLightbox(img.getAttribute('src')); });
+      img.addEventListener('click', function(e){ e.stopPropagation(); openLightbox(imagesForTaskId(img.getAttribute('data-id')), 0); });
     });
     Array.prototype.forEach.call(el.querySelectorAll('.approval-card[data-id]'), function(card){
       card.addEventListener('click', function(){ openModal(card.getAttribute('data-id'), {focusLog:true, readOnly:true}); });
@@ -2166,9 +2227,9 @@
       document.getElementById('fApprover').value = t.approverId || '';
       document.getElementById('fRemark').value = t.remark;
       document.getElementById('fImageFile').value = '';
-      currentImageData = t.imageData || '';
-      if(currentImageData) showImagePreview(currentImageData); else hideImagePreview();
-      if(opts.readOnly) document.getElementById('btnRemoveImage').style.display = 'none';
+      modalImagesReadOnly = !!opts.readOnly;
+      currentImages = (t.images && t.images.length) ? t.images.slice() : (t.imageData ? [t.imageData] : []);
+      renderImageGallery();
 
       var url = gcalUrl(t);
       if(url){
@@ -2218,8 +2279,9 @@
       document.getElementById('fApprover').value='';
       document.getElementById('fRemark').value='';
       document.getElementById('fImageFile').value = '';
-      currentImageData = '';
-      hideImagePreview();
+      modalImagesReadOnly = false;
+      currentImages = [];
+      renderImageGallery();
       overlay.classList.add('show');
       formOpenSnapshot = JSON.stringify(serializeForm());
       if(tryRestoreDraft()) formOpenSnapshot = null; // force isFormDirty()=true so the restored draft isn't lost silently
@@ -2286,7 +2348,8 @@
       priority: document.getElementById('fPriorityInput').value,
       approver_id: document.getElementById('fApprover').value || null,
       remark: document.getElementById('fRemark').value.trim(),
-      image_data: currentImageData || null
+      images: currentImages,
+      image_data: currentImages[0] || null // legacy column, kept in sync as "cover photo" for any code path not yet aware of multi-image
     };
     var saveBtn = document.getElementById('btnSave');
     var prevLabel = saveBtn.textContent;
@@ -2352,7 +2415,7 @@
   // ---------- Export / Import ----------
   function exportJSON(){
     var data = myTasks().map(function(t){
-      return { name:t.name, assignee:t.assignee, assigneeIds:t.assigneeIds||[], status:t.status, project:t.project, startDate:t.startDate, dueDate:t.dueDate, priority:t.priority, remark:t.remark, imageData:t.imageData||'' };
+      return { name:t.name, assignee:t.assignee, assigneeIds:t.assigneeIds||[], status:t.status, project:t.project, startDate:t.startDate, dueDate:t.dueDate, priority:t.priority, remark:t.remark, images:t.images||[], imageData:t.imageData||'' };
     });
     var blob = new Blob([JSON.stringify({tasks:data, exportedAt:new Date().toISOString(), note:'ไม่รวมประวัติการอัปเดต'}, null, 2)], {type:'application/json'});
     var url = URL.createObjectURL(blob);
@@ -2391,7 +2454,8 @@
           due_date: o.dueDate||null,
           priority: ['low','medium','high'].indexOf(o.priority)>-1 ? o.priority : 'medium',
           remark: o.remark||'',
-          image_data: o.imageData || null
+          images: Array.isArray(o.images) && o.images.length ? o.images.slice(0, MAX_TASK_IMAGES) : (o.imageData ? [o.imageData] : []),
+          image_data: (Array.isArray(o.images) && o.images[0]) || o.imageData || null
         };
       });
       beginBusy();
@@ -2586,27 +2650,44 @@
       if(document.visibilityState==='visible' && currentUser) fetchTasks({silent:true});
     });
     document.getElementById('fImageFile').addEventListener('change', function(e){
-      var file = e.target.files && e.target.files[0];
-      if(!file) return;
-      if(file.type.indexOf('image/')!==0){ showToast('กรุณาเลือกไฟล์รูปภาพ'); e.target.value=''; return; }
-      if(file.size > 15*1024*1024){ showToast('ไฟล์รูปใหญ่เกินไป (สูงสุด 15MB)'); e.target.value=''; return; }
-      var reader = new FileReader();
-      reader.onload = function(ev){
-        resizeImageToDataUrl(ev.target.result, 1000, 0.72, function(dataUrl){
-          currentImageData = dataUrl;
-          showImagePreview(dataUrl);
-        });
-      };
-      reader.readAsDataURL(file);
+      var files = Array.prototype.slice.call(e.target.files || []);
+      if(!files.length) return;
+      var remaining = MAX_TASK_IMAGES - currentImages.length;
+      if(remaining <= 0){
+        showToast('เพิ่มรูปได้สูงสุด '+MAX_TASK_IMAGES+' รูปต่องาน');
+        e.target.value = '';
+        return;
+      }
+      if(files.length > remaining){
+        showToast('เลือกได้อีก '+remaining+' รูป (สูงสุด '+MAX_TASK_IMAGES+' รูปต่องาน) — เพิ่มเฉพาะ '+remaining+' รูปแรก');
+        files = files.slice(0, remaining);
+      }
+      files = files.filter(function(f){
+        if(f.type.indexOf('image/')!==0){ showToast('ข้ามไฟล์ที่ไม่ใช่รูปภาพ: '+f.name); return false; }
+        if(f.size > 15*1024*1024){ showToast('ข้ามไฟล์ที่ใหญ่เกินไป (สูงสุด 15MB): '+f.name); return false; }
+        return true;
+      });
+      if(!files.length){ e.target.value=''; return; }
+      var results = new Array(files.length);
+      var pending = files.length;
+      files.forEach(function(file, idx){
+        var reader = new FileReader();
+        reader.onload = function(ev){
+          resizeImageToDataUrl(ev.target.result, 1000, 0.72, function(dataUrl){
+            results[idx] = dataUrl;
+            pending--;
+            if(pending===0){
+              results.forEach(function(d){ if(d) currentImages.push(d); });
+              renderImageGallery();
+              e.target.value = '';
+            }
+          });
+        };
+        reader.readAsDataURL(file);
+      });
     });
-    document.getElementById('btnRemoveImage').addEventListener('click', function(){
-      currentImageData = '';
-      document.getElementById('fImageFile').value = '';
-      hideImagePreview();
-    });
-    document.getElementById('imagePreview').addEventListener('click', function(){
-      openLightbox(currentImageData);
-    });
+    document.getElementById('lightboxPrev').addEventListener('click', function(e){ e.stopPropagation(); lightboxStep(-1); });
+    document.getElementById('lightboxNext').addEventListener('click', function(e){ e.stopPropagation(); lightboxStep(1); });
     document.getElementById('lightboxOverlay').addEventListener('click', closeLightbox);
     document.getElementById('btnAddLog').addEventListener('click', addLogFromInput);
     document.getElementById('logInput').addEventListener('keydown', function(e){
