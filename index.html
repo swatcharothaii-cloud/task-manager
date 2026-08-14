@@ -86,7 +86,8 @@
   /* ---------- Table View ---------- */
   .table-wrap{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);overflow-x:auto;box-shadow:var(--shadow);}
   table{width:100%;border-collapse:collapse;font-size:14.5px;min-width:1080px;}
-  thead th{text-align:left;padding:13px 16px;background:#fafbfc;border-bottom:1px solid var(--border);color:var(--text-muted);font-weight:600;font-size:13px;text-transform:uppercase;letter-spacing:.03em;white-space:nowrap;}
+  thead th{text-align:left;padding:13px 16px;background:#fafbfc;border-bottom:1px solid var(--border);color:var(--text-muted);font-weight:600;font-size:12px;letter-spacing:.02em;white-space:nowrap;line-height:1.5;}
+  thead th br{content:'';}
   tbody td{padding:13px 16px;border-bottom:1px solid var(--border);vertical-align:middle;}
   tbody tr:last-child td{border-bottom:none;}
   tbody tr{cursor:pointer;}
@@ -436,8 +437,20 @@
       <table>
         <thead>
           <tr>
-            <th>Project / Site</th><th>Task Name</th><th>วันที่ทำรายการ</th><th>ผู้ดูแลงาน</th><th>ผู้รับผิดชอบ</th><th>Priority</th><th>Status</th>
-            <th>% ความคืบหน้า</th><th>รูป</th><th>Due Date</th><th>Remark</th><th>Approval</th><th></th>
+            <th>โปรเจกต์ / ไซต์งาน<br>Project / Site</th>
+            <th>รายละเอียดงาน<br>Task Details</th>
+            <th>วันที่ทำรายการ<br>Date Recorded</th>
+            <th>วันเริ่มงาน<br>Start Date</th>
+            <th>วันคาดว่าจะแล้วเสร็จ<br>Due Date</th>
+            <th>สถานะ<br>Status</th>
+            <th>% ความคืบหน้า<br>Progress</th>
+            <th>ผู้ดูแลงาน<br>Supervisor</th>
+            <th>ผู้รับผิดชอบ<br>Assignee</th>
+            <th>ความสำคัญ<br>Priority</th>
+            <th>รูป<br>Photo</th>
+            <th>หมายเหตุ<br>Remark</th>
+            <th>อนุมัติ<br>Approval</th>
+            <th></th>
           </tr>
         </thead>
         <tbody id="tableBody"></tbody>
@@ -1614,13 +1627,14 @@
         '<td>'+projectBadgeHtml(t.project)+'</td>'+
         '<td class="task-name-cell">'+escapeHtml(t.name)+'</td>'+
         '<td class="created-cell">'+displayDateTime(t.createdAt)+'</td>'+
+        '<td>'+displayDate(t.startDate)+'</td>'+
+        '<td>'+displayDate(t.dueDate)+'</td>'+
+        '<td>'+statusPill+'</td>'+
+        '<td>'+progressCellHtml(t)+'</td>'+
         '<td>'+supervisorDisplay(t)+'</td>'+
         '<td>'+assigneeDisplay(t)+'</td>'+
         '<td><span class="pill pill-'+t.priority+'">'+PRIORITY_LABEL[t.priority]+'</span></td>'+
-        '<td>'+statusPill+'</td>'+
-        '<td>'+progressCellHtml(t)+'</td>'+
         '<td class="thumb-cell">'+thumbCellHtml(t)+'</td>'+
-        '<td>'+displayDate(t.dueDate)+'</td>'+
         '<td class="remark-cell" title="'+escapeHtml(t.remark)+'">'+escapeHtml(t.remark||'—')+'</td>'+
         '<td>'+approvalCellHtml(t, !canEdit)+'</td>'+
         '<td>'+actionsCell+'</td>'+
