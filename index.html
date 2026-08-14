@@ -436,8 +436,8 @@
       <table>
         <thead>
           <tr>
-            <th>Project / Site</th><th>Task Name</th><th>วันที่ทำรายการ</th><th>ผู้ดูแลงาน</th><th>ผู้รับผิดชอบ</th><th>Status</th>
-            <th>% ความคืบหน้า</th><th>รูป</th><th>Due Date</th><th>Priority</th><th>Remark</th><th>Approval</th><th></th>
+            <th>Project / Site</th><th>Task Name</th><th>วันที่ทำรายการ</th><th>ผู้ดูแลงาน</th><th>ผู้รับผิดชอบ</th><th>Priority</th><th>Status</th>
+            <th>% ความคืบหน้า</th><th>รูป</th><th>Due Date</th><th>Remark</th><th>Approval</th><th></th>
           </tr>
         </thead>
         <tbody id="tableBody"></tbody>
@@ -1616,11 +1616,11 @@
         '<td class="created-cell">'+displayDateTime(t.createdAt)+'</td>'+
         '<td>'+supervisorDisplay(t)+'</td>'+
         '<td>'+assigneeDisplay(t)+'</td>'+
+        '<td><span class="pill pill-'+t.priority+'">'+PRIORITY_LABEL[t.priority]+'</span></td>'+
         '<td>'+statusPill+'</td>'+
         '<td>'+progressCellHtml(t)+'</td>'+
         '<td class="thumb-cell">'+thumbCellHtml(t)+'</td>'+
         '<td>'+displayDate(t.dueDate)+'</td>'+
-        '<td><span class="pill pill-'+t.priority+'">'+PRIORITY_LABEL[t.priority]+'</span></td>'+
         '<td class="remark-cell" title="'+escapeHtml(t.remark)+'">'+escapeHtml(t.remark||'—')+'</td>'+
         '<td>'+approvalCellHtml(t, !canEdit)+'</td>'+
         '<td>'+actionsCell+'</td>'+
