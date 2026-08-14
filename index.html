@@ -95,6 +95,7 @@
   tbody tr td.row-actions-cell,
   tbody tr td:last-child{cursor:default;}
   .task-name-cell{font-weight:600;}
+  .task-owner-sub{display:block;margin-top:2px;font-size:11px;font-weight:600;color:var(--primary-dark);letter-spacing:.01em;}
   .remark-cell{color:var(--text-muted);max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
   .thumb-cell{width:48px;}
   .task-thumb{width:36px;height:36px;border-radius:8px;object-fit:cover;cursor:zoom-in;border:1px solid var(--border);display:block;}
@@ -1164,12 +1165,27 @@
 
   function myTasks(){ return allTasks.filter(function(t){ return t.ownerId===currentUser.id; }); }
   // Tasks for whoever the Table view is currently browsing (defaults to "me").
+  // Includes tasks that person OWNS, plus tasks owned by someone else where that
+  // person is tagged as ผู้รับผิดชอบ (assignee) — so being tagged by another owner
+  // makes the task show up in the assignee's own Task table too.
   function scopedTasks(){
     var ownerId = viewScopeOwnerId || currentUser.id;
-    return allTasks.filter(function(t){ return t.ownerId===ownerId; });
+    return allTasks.filter(function(t){ return t.ownerId===ownerId || (t.assigneeIds && t.assigneeIds.indexOf(ownerId)!==-1); });
   }
   function approvalTasks(){ return allTasks.filter(function(t){ return t.approverId===currentUser.id; }); }
   function assignedToMeTasks(){ return allTasks.filter(function(t){ return t.assigneeIds.indexOf(currentUser.id)!==-1 && t.ownerId!==currentUser.id; }); }
+  // Per-row permission checks — mirror the tasks_update_own_or_approver / tasks_delete_own
+  // RLS policies exactly, so the UI never offers a button the server will then reject.
+  function canEditTaskRow(t){
+    if(t.ownerId===currentUser.id || t.approverId===currentUser.id || t.supervisorId===currentUser.id) return true;
+    if(t.assigneeIds && t.assigneeIds.indexOf(currentUser.id)!==-1) return true;
+    var owner = allProfilesList.find(function(p){ return p.id===t.ownerId; });
+    if(owner && owner.team_lead_id===currentUser.id) return true;
+    return false;
+  }
+  function canDeleteTaskRow(t){
+    return t.ownerId===currentUser.id;
+  }
   // Plain-text (no HTML) list of tagged assignee names, for card meta lines, gcal details, tooltips, etc.
   function assigneeNamesText(t){
     var names = (t.assigneeIds||[]).map(profileName).filter(Boolean);
@@ -1652,7 +1668,6 @@
 
   function renderTable(){
     var other = isViewingOtherScope();
-    var canEdit = !other || isTeamLeadOfScope();
     updateHeaderActionsForScope();
 
     var scopeSel = document.getElementById('tableScopeSelect');
@@ -1679,17 +1694,22 @@
       var statusPill = overdue
         ? '<span class="pill pill-overdue">⚠ เกินกำหนด</span>'
         : '<span class="pill pill-'+t.status+'">'+STATUS_LABEL[t.status]+'</span>';
-      var actionsCell = !canEdit
+      var rowCanEdit = canEditTaskRow(t);
+      var rowCanDelete = canDeleteTaskRow(t);
+      var scopeOwnerId = viewScopeOwnerId || currentUser.id;
+      // งานที่ถูกแท็กเป็นผู้รับผิดชอบ แต่เจ้าของงานเป็นคนอื่น — ใส่ชื่อเจ้าของงานกำกับไว้ให้ชัดเจน
+      var ownerSub = (t.ownerId!==scopeOwnerId) ? '<span class="task-owner-sub">🏷️ โดย '+escapeHtml(profileName(t.ownerId))+'</span>' : '';
+      var actionsCell = !rowCanEdit
         ? '<div class="row-actions"><button class="btn-pill-edit" data-act="view">ดู</button></div>'
-        : (other
-          ? '<div class="row-actions"><button class="btn-pill-edit" data-act="edit">แก้ไข</button></div>'
-          : '<div class="row-actions">'+
+        : (rowCanDelete
+          ? '<div class="row-actions">'+
               '<button class="btn-pill-edit" data-act="edit">แก้ไข</button>'+
               '<button class="btn-pill-del" data-act="delete">ลบ</button>'+
-            '</div>');
-      return '<tr data-id="'+t.id+'">'+
+            '</div>'
+          : '<div class="row-actions"><button class="btn-pill-edit" data-act="edit">แก้ไข</button></div>');
+      return '<tr data-id="'+t.id+'" data-can-edit="'+(rowCanEdit?'1':'0')+'">'+
         '<td>'+projectBadgeHtml(t.project)+'</td>'+
-        '<td class="task-name-cell">'+escapeHtml(t.name)+'</td>'+
+        '<td class="task-name-cell">'+escapeHtml(t.name)+ownerSub+'</td>'+
         '<td class="created-cell">'+displayDateTime(t.createdAt)+'</td>'+
         '<td>'+displayDate(t.startDate)+'</td>'+
         '<td>'+displayDate(t.dueDate)+'</td>'+
@@ -1701,7 +1721,7 @@
         '<td class="thumb-cell">'+thumbCellHtml(t)+'</td>'+
         '<td>'+attachCellHtml(t)+'</td>'+
         '<td class="remark-cell" title="'+escapeHtml(t.remark)+'">'+escapeHtml(t.remark||'—')+'</td>'+
-        '<td>'+approvalCellHtml(t, !canEdit)+'</td>'+
+        '<td>'+approvalCellHtml(t, !rowCanEdit)+'</td>'+
         '<td>'+actionsCell+'</td>'+
       '</tr>';
     }).join('');
@@ -1728,7 +1748,8 @@
     });
     Array.prototype.forEach.call(body.querySelectorAll('tr[data-id]'), function(row){
       row.addEventListener('click', function(){
-        openModal(row.getAttribute('data-id'), {focusLog:true, readOnly: !canEdit});
+        var rowEditable = row.getAttribute('data-can-edit')==='1';
+        openModal(row.getAttribute('data-id'), {focusLog:true, readOnly: !rowEditable});
       });
     });
   }
