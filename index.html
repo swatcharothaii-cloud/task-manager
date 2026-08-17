@@ -1326,6 +1326,25 @@
     });
   }
 
+  // Table view ordering: group tasks by โปรเจกต์ (project) first — งานที่ไม่มีโปรเจกต์ไปอยู่ท้ายสุด —
+  // then within the same project, order chronologically by วันเริ่มงาน (start date, falling back
+  // to due date for tasks with no start date set).
+  function sortTasksByProjectThenDate(list){
+    return list.slice().sort(function(a,b){
+      var pa = a.project || '';
+      var pb = b.project || '';
+      if(pa !== pb){
+        if(!pa) return 1;
+        if(!pb) return -1;
+        return pa.localeCompare(pb, 'th');
+      }
+      var da = a.startDate || a.dueDate || '';
+      var db = b.startDate || b.dueDate || '';
+      if(da !== db) return da.localeCompare(db);
+      return (a.createdAt||'').localeCompare(b.createdAt||'');
+    });
+  }
+
   function refreshProjectFilter(){
     var sel = document.getElementById('fProject');
     var current = sel.value;
@@ -1741,7 +1760,7 @@
     var heading = document.getElementById('tableHeading');
     if(heading) heading.textContent = other ? 'งานของ ' + profileName(viewScopeOwnerId) : 'งานทั้งหมด';
 
-    var list = getFiltered();
+    var list = sortTasksByProjectThenDate(getFiltered());
     var body = document.getElementById('tableBody');
     var empty = document.getElementById('tableEmpty');
     if(list.length===0){
