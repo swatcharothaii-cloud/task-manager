@@ -92,11 +92,17 @@
   tbody tr:last-child td{border-bottom:none;}
   tbody tr{cursor:pointer;}
   tbody tr:hover{background:#fafbfe;}
+  tbody tr.row-done{background:var(--green-soft);}
+  tbody tr.row-done td{border-bottom-color:#cdedd9;}
+  tbody tr.row-done:hover{background:#d9f2e2;}
+  tbody tr.row-done .pill-done{background:#ffffff;}
   tbody tr td.row-actions-cell,
   tbody tr td:last-child{cursor:default;}
   .task-name-cell{font-weight:600;}
   .task-owner-sub{display:block;margin-top:2px;font-size:11px;font-weight:600;color:var(--primary-dark);letter-spacing:.01em;}
-  .remark-cell{color:var(--text-muted);max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+  .remark-cell{color:var(--text-dark,#1f2937);max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+  .remark-cell-meta{color:var(--text-muted);font-size:12px;margin-left:4px;}
+  .remark-cell-empty{color:var(--text-muted);}
   .thumb-cell{width:48px;}
   .task-thumb{width:36px;height:36px;border-radius:8px;object-fit:cover;cursor:zoom-in;border:1px solid var(--border);display:block;}
   .task-thumb-empty{width:36px;height:36px;border-radius:8px;background:var(--gray-soft);color:var(--text-muted);display:flex;align-items:center;justify-content:center;font-size:14px;}
@@ -434,7 +440,7 @@
     </div>
     <div class="filters" id="filtersBar">
       <input type="text" id="fSearch" placeholder="🔍 ค้นหาชื่องาน / ผู้รับผิดชอบ...">
-      <select id="fStatus"><option value="">ทุกสถานะ</option><option value="todo">To Do</option><option value="doing">Doing</option><option value="done">Done</option><option value="overdue">⚠ เกินกำหนด</option></select>
+      <select id="fStatus"><option value="">ทุกสถานะ</option><option value="todo">ต้องทำ</option><option value="doing">กำลังทำ</option><option value="done">เสร็จแล้ว</option><option value="overdue">⚠ เกินกำหนด</option></select>
       <select id="fPriority"><option value="">ทุกความสำคัญ</option><option value="high">🔴 ด่วนมาก</option><option value="medium">🟠 ด่วน</option><option value="low">🟢 ตามกำหนด</option></select>
       <select id="fProject"><option value="">ทุกโปรเจกต์</option></select>
     </div>
@@ -475,7 +481,7 @@
             <th>ความสำคัญ<br>Priority</th>
             <th>รูป<br>Photo</th>
             <th>ไฟล์แนบ<br>Attachments</th>
-            <th>หมายเหตุ<br>Remark</th>
+            <th>ความคิดเห็นล่าสุด<br>Latest Comment</th>
             <th>อนุมัติ<br>Approval</th>
             <th></th>
           </tr>
@@ -567,9 +573,9 @@
         <div class="form-group">
           <label>สถานะ (Status)</label>
           <select id="fFormStatus">
-            <option value="todo">To Do</option>
-            <option value="doing">Doing</option>
-            <option value="done">Done</option>
+            <option value="todo">ต้องทำ</option>
+            <option value="doing">กำลังทำ</option>
+            <option value="done">เสร็จแล้ว</option>
           </select>
         </div>
         <div class="form-group">
@@ -738,6 +744,7 @@
   var allProfilesList = [];    // full profile rows {id, display_name, role} for the team directory
   var notifIntervalId = null;
   var allTasks = [];           // every row visible to me (mine + assigned-to-me-for-approval)
+  var latestCommentByTaskId = {}; // task_id -> latest task_updates row {task_id, actor_id, text, created_at}, for the Table view's "ความคิดเห็นล่าสุด" column
   var currentView = 'table';
   var editingId = null;
   var currentModalTask = null; // the task object currently open in the modal (for chat role tags)
@@ -758,7 +765,7 @@
 
   var THAI_MONTHS = ['มกราคม','กุมภาพันธ์','มีนาคม','เมษายน','พฤษภาคม','มิถุนายน','กรกฎาคม','สิงหาคม','กันยายน','ตุลาคม','พฤศจิกายน','ธันวาคม'];
   var DOW_TH = ['อาทิตย์','จันทร์','อังคาร','พุธ','พฤหัสบดี','ศุกร์','เสาร์'];
-  var STATUS_LABEL = { todo:'To Do', doing:'Doing', done:'Done' };
+  var STATUS_LABEL = { todo:'ต้องทำ', doing:'กำลังทำ', done:'เสร็จแล้ว' };
   var PRIORITY_LABEL = { low:'ตามกำหนด', medium:'ด่วน', high:'ด่วนมาก' };
   var APPROVAL_LABEL = { none:'—', pending:'รออนุมัติ', approved:'อนุมัติแล้ว', rejected:'ไม่อนุมัติ' };
 
@@ -1082,6 +1089,19 @@
     var n = (t.attachments && t.attachments.length) || 0;
     if(!n) return '<span class="attach-cell-badge">—</span>';
     return '<span class="attach-cell-badge" title="'+n+' ไฟล์แนบ">📎 '+n+'</span>';
+  }
+
+  // Latest entry from the task's comment/update thread (task_updates) — shown in the
+  // Table view's "ความคิดเห็นล่าสุด" column so people can see the newest discussion
+  // without opening each task.
+  function latestCommentCellHtml(t){
+    var u = latestCommentByTaskId[t.id];
+    if(!u || !u.text) return '<span class="remark-cell-empty">—</span>';
+    var authorName = u.actor_id ? profileName(u.actor_id) : 'ระบบ';
+    var dt = new Date(u.created_at);
+    var stamp = isNaN(dt) ? '' : (fmtDate(dt) + ' ' + ('0'+dt.getHours()).slice(-2)+':'+('0'+dt.getMinutes()).slice(-2));
+    var full = authorName + (stamp ? (' • '+stamp) : '') + '\n' + u.text;
+    return escapeHtml(u.text) + '<span class="remark-cell-meta" title="'+escapeHtml(full)+'"> — '+escapeHtml(authorName)+'</span>';
   }
 
   // Give each distinct project/site name a stable, distinguishable color so
@@ -1627,10 +1647,17 @@
     opts = opts || {};
     if(!opts.silent) beginBusy();
     try{
-      var res = unwrap(await withRetry(function(){
-        return sb.from('tasks').select('*').order('created_at', {ascending:false});
-      }));
-      allTasks = (res.data||[]).map(rowToTask);
+      var results = await Promise.all([
+        withRetry(function(){ return sb.from('tasks').select('*').order('created_at', {ascending:false}); }),
+        withRetry(function(){ return sb.from('task_updates').select('task_id, actor_id, text, created_at').order('created_at', {ascending:false}); })
+      ]);
+      var tasksRes = unwrap(results[0]);
+      var updatesRes = unwrap(results[1]);
+      allTasks = (tasksRes.data||[]).map(rowToTask);
+      // ordered newest-first, so the first row seen per task_id is its latest comment/update
+      var map = {};
+      (updatesRes.data||[]).forEach(function(u){ if(!map[u.task_id]) map[u.task_id] = u; });
+      latestCommentByTaskId = map;
       renderAll();
     }catch(err){
       console.error(err);
@@ -1656,6 +1683,9 @@
   // duplicate the log entry on retry. Callers decide how to surface the failure.
   async function addLogEntry(taskId, text){
     unwrap(await sb.from('task_updates').insert({ task_id:taskId, actor_id:currentUser.id, text:text }));
+    // Keep the Table view's "ความคิดเห็นล่าสุด" column in sync without a full refetch.
+    latestCommentByTaskId[taskId] = { task_id:taskId, actor_id:currentUser.id, text:text, created_at:new Date().toISOString() };
+    renderTable();
   }
 
   // ---------- Render dispatcher ----------
@@ -1741,7 +1771,8 @@
               '<button class="btn-pill-del" data-act="delete">ลบ</button>'+
             '</div>'
           : '<div class="row-actions"><button class="btn-pill-edit" data-act="edit">แก้ไข</button></div>');
-      return '<tr data-id="'+t.id+'" data-can-edit="'+(rowCanEdit?'1':'0')+'">'+
+      var rowCls = t.status==='done' ? ' class="row-done"' : '';
+      return '<tr data-id="'+t.id+'"'+rowCls+' data-can-edit="'+(rowCanEdit?'1':'0')+'">'+
         '<td>'+projectBadgeHtml(t.project)+'</td>'+
         '<td class="task-name-cell">'+escapeHtml(t.name)+ownerSub+'</td>'+
         '<td class="created-cell">'+displayDateTime(t.createdAt)+'</td>'+
@@ -1754,7 +1785,7 @@
         '<td><span class="pill pill-'+t.priority+'">'+PRIORITY_LABEL[t.priority]+'</span></td>'+
         '<td class="thumb-cell">'+thumbCellHtml(t)+'</td>'+
         '<td>'+attachCellHtml(t)+'</td>'+
-        '<td class="remark-cell" title="'+escapeHtml(t.remark)+'">'+escapeHtml(t.remark||'—')+'</td>'+
+        '<td class="remark-cell">'+latestCommentCellHtml(t)+'</td>'+
         '<td>'+approvalCellHtml(t, !rowCanEdit)+'</td>'+
         '<td>'+actionsCell+'</td>'+
       '</tr>';
@@ -1792,9 +1823,9 @@
   function renderKanban(){
     var list = getFiltered();
     var cols = [
-      {key:'todo', title:'To Do', sw:'#9ca3af'},
-      {key:'doing', title:'Doing', sw:'#1d5fd6'},
-      {key:'done', title:'Done', sw:'#16a34a'}
+      {key:'todo', title:'ต้องทำ', sw:'#9ca3af'},
+      {key:'doing', title:'กำลังทำ', sw:'#1d5fd6'},
+      {key:'done', title:'เสร็จแล้ว', sw:'#16a34a'}
     ];
     var board = document.getElementById('kanbanBoard');
     board.innerHTML = cols.map(function(c){
