@@ -98,11 +98,13 @@
   tbody tr.row-done .pill-done{background:#ffffff;}
   tbody tr td.row-actions-cell,
   tbody tr td:last-child{cursor:default;}
-  .task-name-cell{font-weight:600;}
+  .task-name-cell{font-weight:600;font-size:14.5px;line-height:1.5;white-space:normal;min-width:200px;max-width:320px;}
   .task-owner-sub{display:block;margin-top:2px;font-size:11px;font-weight:600;color:var(--primary-dark);letter-spacing:.01em;}
-  .remark-cell{color:var(--text-dark,#1f2937);max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
-  .remark-cell-meta{color:var(--text-muted);font-size:12px;margin-left:4px;}
+  .remark-cell{color:var(--text-dark,#1f2937);font-size:13.5px;line-height:1.55;white-space:normal;min-width:200px;max-width:320px;}
+  .remark-cell-meta{display:block;margin-top:2px;color:var(--text-muted);font-size:12px;}
   .remark-cell-empty{color:var(--text-muted);}
+  /* date columns — Date Recorded / Start Date / Due Date share one consistent, formal style */
+  .date-cell{color:var(--text-muted);font-size:13px;font-weight:500;white-space:nowrap;letter-spacing:.01em;font-variant-numeric:tabular-nums;}
   .thumb-cell{width:48px;}
   .task-thumb{width:36px;height:36px;border-radius:8px;object-fit:cover;cursor:zoom-in;border:1px solid var(--border);display:block;}
   .task-thumb-empty{width:36px;height:36px;border-radius:8px;background:var(--gray-soft);color:var(--text-muted);display:flex;align-items:center;justify-content:center;font-size:14px;}
@@ -274,7 +276,6 @@
   .week-bar-wrap{background:var(--gray-soft);border-radius:100px;height:10px;overflow:hidden;flex:1 1 160px;min-width:120px;}
   .week-bar{background:var(--primary);height:100%;border-radius:100px;}
   .week-count{font-size:13px;color:var(--text-muted);font-weight:600;flex:0 0 auto;min-width:70px;text-align:right;}
-  .created-cell{color:var(--text-muted);font-size:12.5px;white-space:nowrap;}
 
   /* ---------- Modal ---------- */
   .overlay{position:fixed;inset:0;background:rgba(20,22,30,.45);display:none;align-items:flex-start;justify-content:center;z-index:100;padding:40px 16px;overflow-y:auto;}
@@ -1775,9 +1776,9 @@
       return '<tr data-id="'+t.id+'"'+rowCls+' data-can-edit="'+(rowCanEdit?'1':'0')+'">'+
         '<td>'+projectBadgeHtml(t.project)+'</td>'+
         '<td class="task-name-cell">'+escapeHtml(t.name)+ownerSub+'</td>'+
-        '<td class="created-cell">'+displayDateTime(t.createdAt)+'</td>'+
-        '<td>'+displayDate(t.startDate)+'</td>'+
-        '<td>'+displayDate(t.dueDate)+'</td>'+
+        '<td class="date-cell">'+displayDateTime(t.createdAt)+'</td>'+
+        '<td class="date-cell">'+displayDate(t.startDate)+'</td>'+
+        '<td class="date-cell">'+displayDate(t.dueDate)+'</td>'+
         '<td>'+statusPill+'</td>'+
         '<td>'+progressCellHtml(t)+'</td>'+
         '<td>'+supervisorDisplay(t)+'</td>'+
