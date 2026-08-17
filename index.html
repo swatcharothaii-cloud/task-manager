@@ -147,7 +147,13 @@
   .empty-state .big{font-size:32px;margin-bottom:8px;}
 
   /* ---------- Project pills (quick view filter) ---------- */
-  .project-pills{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:14px;}
+  .project-filter-dropdown{position:relative;margin-bottom:14px;display:inline-block;}
+  .project-filter-toggle{display:inline-flex;align-items:center;gap:8px;border:1px solid var(--border);background:var(--surface);color:var(--text-dark,#1f2937);padding:9px 16px;border-radius:100px;font-size:13px;font-weight:600;cursor:pointer;}
+  .project-filter-toggle:hover{background:var(--gray-soft);}
+  .project-filter-toggle .caret{font-size:11px;color:var(--text-muted);transition:transform .15s ease;}
+  .project-filter-toggle.open .caret{transform:rotate(180deg);}
+  .project-pills{display:none;flex-wrap:wrap;gap:8px;position:absolute;top:calc(100% + 6px);left:0;z-index:60;background:var(--surface);border:1px solid var(--border);border-radius:14px;box-shadow:var(--shadow-lg);padding:12px;min-width:260px;max-width:min(520px,80vw);}
+  .project-pills.show{display:flex;}
   .project-pill{border:1px solid var(--border);background:var(--surface);color:var(--text-muted);padding:8px 16px;border-radius:100px;font-size:13px;font-weight:600;white-space:nowrap;}
   .project-pill:hover{background:var(--gray-soft);}
   .project-pill.active{background:var(--primary-soft);border-color:var(--primary);color:var(--primary-dark);}
@@ -445,7 +451,14 @@
       </div>
       <span class="sub" id="tableCountSub"></span>
     </div>
-    <div class="project-pills" id="projectPills"></div>
+    <div class="project-filter-dropdown" id="projectFilterDropdown">
+      <button type="button" class="project-filter-toggle" id="projectFilterToggle">
+        <span class="pill-color-dot" id="projectFilterToggleDot" style="display:none;"></span>
+        <span id="projectFilterToggleLabel">ทุกโปรเจกต์</span>
+        <span class="caret">▾</span>
+      </button>
+      <div class="project-pills" id="projectPills"></div>
+    </div>
     <div class="table-wrap">
       <table>
         <thead>
@@ -1302,9 +1315,29 @@
     sel.value = projects.indexOf(current)>-1 ? current : '';
   }
 
+  function updateProjectFilterToggleLabel(){
+    var labelEl = document.getElementById('projectFilterToggleLabel');
+    var dotEl = document.getElementById('projectFilterToggleDot');
+    if(!labelEl || !dotEl) return;
+    if(filters.project){
+      labelEl.textContent = filters.project;
+      dotEl.style.background = projectColor(filters.project).bg;
+      dotEl.style.display = 'inline-block';
+    } else {
+      labelEl.textContent = 'ทุกโปรเจกต์';
+      dotEl.style.display = 'none';
+    }
+  }
+  function closeProjectFilterDropdown(){
+    var panel = document.getElementById('projectPills');
+    var toggle = document.getElementById('projectFilterToggle');
+    if(panel) panel.classList.remove('show');
+    if(toggle) toggle.classList.remove('open');
+  }
   function renderProjectPills(){
     var wrap = document.getElementById('projectPills');
     if(!wrap) return;
+    updateProjectFilterToggleLabel();
     var projects = Array.from(new Set(scopedTasks().map(function(t){return t.project;}).filter(Boolean))).sort();
     if(projects.length===0){ wrap.innerHTML=''; return; }
     var pills = [{v:'', label:'ทั้งหมด'}].concat(projects.map(function(p){ return {v:p, label:p}; }));
@@ -1327,6 +1360,7 @@
       btn.addEventListener('click', function(){
         filters.project = btn.getAttribute('data-project');
         document.getElementById('fProject').value = filters.project;
+        closeProjectFilterDropdown();
         renderAll();
       });
     });
@@ -2919,6 +2953,26 @@
         panel.classList.remove('show');
       }
     });
+
+    // Project filter — collapsed dropdown (click to open, click outside/select to close)
+    var projFilterToggleBtn = document.getElementById('projectFilterToggle');
+    if(projFilterToggleBtn){
+      projFilterToggleBtn.addEventListener('click', function(e){
+        e.stopPropagation();
+        var panel = document.getElementById('projectPills');
+        var isOpen = panel.classList.toggle('show');
+        projFilterToggleBtn.classList.toggle('open', isOpen);
+      });
+    }
+    document.addEventListener('click', function(e){
+      var panel = document.getElementById('projectPills');
+      var toggle = document.getElementById('projectFilterToggle');
+      if(!panel || !toggle) return;
+      if(panel.classList.contains('show') && !panel.contains(e.target) && !toggle.contains(e.target)){
+        closeProjectFilterDropdown();
+      }
+    });
+
     if('Notification' in window && Notification.permission==='default'){
       Notification.requestPermission().catch(function(){});
     }
