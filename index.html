@@ -129,6 +129,16 @@
   .lightbox-nav-prev{left:16px;}
   .lightbox-nav-next{right:16px;}
   .lightbox-counter{position:absolute;bottom:16px;left:50%;transform:translateX(-50%);background:rgba(0,0,0,0.5);color:#fff;font-size:13px;padding:4px 12px;border-radius:100px;}
+  .pdf-viewer-box{width:min(920px,92vw);height:88vh;background:#fff;border-radius:12px;overflow:hidden;display:flex;flex-direction:column;box-shadow:var(--shadow-lg);}
+  .pdf-viewer-head{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:10px 14px;border-bottom:1px solid var(--border);background:#fafbfc;flex:0 0 auto;}
+  .pdf-viewer-title{font-weight:600;font-size:14px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+  .pdf-viewer-actions{display:flex;align-items:center;gap:8px;flex:0 0 auto;}
+  .pdf-viewer-download{font-size:13px;font-weight:600;color:var(--primary-dark);text-decoration:none;padding:6px 10px;border-radius:8px;background:var(--primary-soft);white-space:nowrap;}
+  .pdf-viewer-download:hover{background:var(--gray-soft);}
+  .pdf-viewer-close{border:none;background:var(--gray-soft);width:30px;height:30px;border-radius:8px;font-size:18px;line-height:1;cursor:pointer;color:var(--text-muted);flex:0 0 auto;}
+  .pdf-viewer-close:hover{background:var(--border);}
+  #pdfViewerFrame{flex:1;border:none;width:100%;}
+  .attach-item-name{background:none;border:none;padding:0;cursor:pointer;text-align:left;font-family:inherit;}
 
   .pill{display:inline-flex;align-items:center;gap:5px;padding:3px 10px;border-radius:100px;font-size:12px;font-weight:700;white-space:nowrap;}
   .pill-todo{background:var(--gray-soft);color:var(--gray);}
@@ -710,6 +720,20 @@
   <span class="lightbox-counter" id="lightboxCounter" style="display:none;"></span>
 </div>
 
+<!-- PDF VIEWER — เปิดดูไฟล์แนบในแอปได้เลย ไม่ต้องกดเซฟก่อน -->
+<div class="overlay" id="pdfViewerOverlay" style="z-index:210;align-items:center;">
+  <div class="pdf-viewer-box" id="pdfViewerBox">
+    <div class="pdf-viewer-head">
+      <span class="pdf-viewer-title" id="pdfViewerTitle"></span>
+      <div class="pdf-viewer-actions">
+        <a class="pdf-viewer-download" id="pdfViewerDownload" href="" download="">⬇ ดาวน์โหลด</a>
+        <button type="button" class="pdf-viewer-close" id="pdfViewerClose" title="ปิด">×</button>
+      </div>
+    </div>
+    <iframe id="pdfViewerFrame" src="" title="ดูไฟล์ PDF"></iframe>
+  </div>
+</div>
+
 </div><!-- /appRoot -->
 
 <div class="toast" id="toast"></div>
@@ -1019,11 +1043,17 @@
     wrap.innerHTML = currentAttachments.map(function(a, i){
       return '<div class="attach-item">'+
           '<span class="attach-item-icon">📄</span>'+
-          '<a class="attach-item-name" href="'+a.dataUrl+'" download="'+escapeHtml(a.name)+'" target="_blank" rel="noopener" title="'+escapeHtml(a.name)+'">'+escapeHtml(a.name)+'</a>'+
+          '<button type="button" class="attach-item-name" data-idx="'+i+'" title="เปิดดู '+escapeHtml(a.name)+'">'+escapeHtml(a.name)+'</button>'+
           (a.size ? '<span class="attach-item-size">'+formatFileSize(a.size)+'</span>' : '')+
           (modalAttachmentsReadOnly ? '' : '<button type="button" class="attach-item-remove" data-idx="'+i+'" title="ลบไฟล์นี้">×</button>')+
         '</div>';
     }).join('') + '<span class="attach-count-label">'+currentAttachments.length+'/'+MAX_TASK_ATTACHMENTS+' ไฟล์</span>';
+    Array.prototype.forEach.call(wrap.querySelectorAll('.attach-item-name'), function(btn){
+      btn.addEventListener('click', function(e){
+        e.stopPropagation();
+        openPdfViewer(currentAttachments[parseInt(btn.getAttribute('data-idx'), 10)]);
+      });
+    });
     Array.prototype.forEach.call(wrap.querySelectorAll('.attach-item-remove'), function(btn){
       btn.addEventListener('click', function(e){
         e.stopPropagation();
@@ -1032,6 +1062,22 @@
         scheduleDraftSave();
       });
     });
+  }
+  // Opens a PDF attachment right inside the app (an <iframe> over the data: URL) so people
+  // can read it without a forced "Save As" dialog — a small download link stays available
+  // in the header for anyone who does want a local copy.
+  function openPdfViewer(a){
+    if(!a || !a.dataUrl) return;
+    document.getElementById('pdfViewerTitle').textContent = a.name || 'ไฟล์ PDF';
+    document.getElementById('pdfViewerFrame').src = a.dataUrl;
+    var dl = document.getElementById('pdfViewerDownload');
+    dl.href = a.dataUrl;
+    dl.setAttribute('download', a.name || 'attachment.pdf');
+    document.getElementById('pdfViewerOverlay').classList.add('show');
+  }
+  function closePdfViewer(){
+    document.getElementById('pdfViewerOverlay').classList.remove('show');
+    document.getElementById('pdfViewerFrame').src = '';
   }
   // Opens the lightbox on a specific image within a task's full photo set, with
   // prev/next navigation when there's more than one. Also accepts a bare string
@@ -2985,6 +3031,9 @@
     document.getElementById('lightboxPrev').addEventListener('click', function(e){ e.stopPropagation(); lightboxStep(-1); });
     document.getElementById('lightboxNext').addEventListener('click', function(e){ e.stopPropagation(); lightboxStep(1); });
     document.getElementById('lightboxOverlay').addEventListener('click', closeLightbox);
+    document.getElementById('pdfViewerOverlay').addEventListener('click', closePdfViewer);
+    document.getElementById('pdfViewerBox').addEventListener('click', function(e){ e.stopPropagation(); });
+    document.getElementById('pdfViewerClose').addEventListener('click', function(e){ e.stopPropagation(); closePdfViewer(); });
     document.getElementById('btnAddLog').addEventListener('click', addLogFromInput);
     document.getElementById('logInput').addEventListener('keydown', function(e){
       if(e.key==='Enter'){ e.preventDefault(); addLogFromInput(); }
