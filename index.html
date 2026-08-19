@@ -78,6 +78,8 @@
   .filters{display:flex;gap:9px;align-items:center;flex-wrap:wrap;margin-left:auto;}
   .filters input, .filters select{border:1px solid var(--border);border-radius:7px;padding:8px 12px;font-size:14px;color:var(--text);background:var(--surface);}
   .filters input[type=text]{min-width:200px;}
+  .btn-clear-col-filters{display:inline-flex;align-items:center;gap:4px;border:1px solid var(--red,#dc2626);background:var(--red-soft,#fef2f2);color:var(--red,#dc2626);border-radius:7px;padding:8px 12px;font-size:13px;font-weight:600;cursor:pointer;white-space:nowrap;}
+  .btn-clear-col-filters:hover{background:#fde2e2;}
 
   main{padding:24px 28px;max-width:1680px;margin:0 auto;}
   .view{display:none;}
@@ -88,13 +90,24 @@
   table{width:100%;border-collapse:collapse;font-size:14.5px;min-width:1680px;}
   thead th{text-align:left;padding:13px 16px;background:#fafbfc;border-bottom:1px solid var(--border);color:var(--text-muted);font-weight:600;font-size:12px;letter-spacing:.02em;white-space:nowrap;line-height:1.5;}
   thead th br{content:'';}
-  thead th[data-sort-key]{cursor:pointer;user-select:none;}
+  thead th[data-sort-key]{cursor:pointer;user-select:none;position:relative;}
   thead th[data-sort-key]:hover{background:#eef1f5;}
   .th-sort-wrap{display:flex;align-items:center;justify-content:space-between;gap:6px;}
+  .th-controls{display:flex;align-items:center;gap:2px;flex:0 0 auto;}
   .sort-arrow{flex:0 0 auto;font-size:10px;color:var(--text-muted);opacity:.4;}
   .sort-arrow:empty::before{content:'⇅';}
   thead th[data-sort-key].sort-active{background:#eef1f5;color:var(--text-dark,#1f2937);}
   thead th[data-sort-key].sort-active .sort-arrow{opacity:1;color:var(--primary-dark);font-weight:700;}
+  .th-filter-btn{border:none;background:none;padding:2px 4px;margin:0;cursor:pointer;font-size:11px;color:var(--text-muted);border-radius:4px;line-height:1;flex:0 0 auto;}
+  .th-filter-btn:hover{background:#dfe4ea;}
+  .th-filter-btn.filter-active{color:var(--primary-dark);font-weight:700;}
+  .th-filter-panel{display:none;position:absolute;top:100%;left:0;margin-top:4px;z-index:70;background:var(--surface);border:1px solid var(--border);border-radius:10px;box-shadow:var(--shadow-lg);padding:8px;min-width:200px;max-width:280px;max-height:280px;overflow-y:auto;cursor:default;}
+  .th-filter-panel.show{display:block;}
+  .th-filter-option{display:flex;align-items:center;gap:7px;padding:5px 6px;font-size:12.5px;font-weight:500;text-transform:none;letter-spacing:normal;white-space:normal;color:var(--text-dark,#1f2937);border-radius:6px;cursor:pointer;}
+  .th-filter-option:hover{background:var(--gray-soft);}
+  .th-filter-all{font-weight:700;}
+  .th-filter-divider{height:1px;background:var(--border);margin:4px 0;}
+  .th-filter-empty{font-size:12px;color:var(--text-muted);padding:6px;font-weight:500;}
   tbody td{padding:13px 16px;border-bottom:1px solid var(--border);vertical-align:middle;}
   tbody tr:last-child td{border-bottom:none;}
   tbody tr{cursor:pointer;}
@@ -461,6 +474,7 @@
       <select id="fStatus"><option value="">ทุกสถานะ</option><option value="todo">ต้องทำ</option><option value="doing">กำลังทำ</option><option value="done">เสร็จแล้ว</option><option value="overdue">⚠ เกินกำหนด</option></select>
       <select id="fPriority"><option value="">ทุกความสำคัญ</option><option value="high">🔴 ด่วนมาก</option><option value="medium">🟠 ด่วน</option><option value="low">🟢 ตามกำหนด</option></select>
       <select id="fProject"><option value="">ทุกโปรเจกต์</option></select>
+      <button type="button" id="btnClearColumnFilters" class="btn-clear-col-filters" style="display:none;" title="ล้างตัวกรองที่ตั้งไว้จากหัวตาราง">✕ ล้างตัวกรองคอลัมน์</button>
     </div>
   </div>
 </div>
@@ -487,20 +501,20 @@
       <table>
         <thead>
           <tr id="tableHeadRow">
-            <th data-sort-key="project"><span class="th-sort-wrap"><span class="th-label">โปรเจกต์ / ไซต์งาน<br>Project / Site</span><span class="sort-arrow"></span></span></th>
+            <th data-sort-key="project"><span class="th-sort-wrap"><span class="th-label">โปรเจกต์ / ไซต์งาน<br>Project / Site</span><span class="th-controls"><span class="sort-arrow"></span><button type="button" class="th-filter-btn" data-filter-key="project" title="กรองตามโปรเจกต์">⏷</button></span></span><div class="th-filter-panel" data-filter-panel="project"></div></th>
             <th data-sort-key="name"><span class="th-sort-wrap"><span class="th-label">รายละเอียดงาน<br>Task Details</span><span class="sort-arrow"></span></span></th>
             <th data-sort-key="created"><span class="th-sort-wrap"><span class="th-label">วันที่ทำรายการ<br>Date Recorded</span><span class="sort-arrow"></span></span></th>
             <th data-sort-key="start"><span class="th-sort-wrap"><span class="th-label">วันเริ่มงาน<br>Start Date</span><span class="sort-arrow"></span></span></th>
             <th data-sort-key="due"><span class="th-sort-wrap"><span class="th-label">วันคาดว่าจะแล้วเสร็จ<br>Due Date</span><span class="sort-arrow"></span></span></th>
-            <th data-sort-key="status"><span class="th-sort-wrap"><span class="th-label">สถานะ<br>Status</span><span class="sort-arrow"></span></span></th>
+            <th data-sort-key="status"><span class="th-sort-wrap"><span class="th-label">สถานะ<br>Status</span><span class="th-controls"><span class="sort-arrow"></span><button type="button" class="th-filter-btn" data-filter-key="status" title="กรองตามสถานะ">⏷</button></span></span><div class="th-filter-panel" data-filter-panel="status"></div></th>
             <th data-sort-key="progress"><span class="th-sort-wrap"><span class="th-label">% ความคืบหน้า<br>Progress</span><span class="sort-arrow"></span></span></th>
-            <th data-sort-key="supervisor"><span class="th-sort-wrap"><span class="th-label">ผู้ดูแลงาน<br>Supervisor</span><span class="sort-arrow"></span></span></th>
-            <th data-sort-key="assignee"><span class="th-sort-wrap"><span class="th-label">ผู้รับผิดชอบ<br>Assignee</span><span class="sort-arrow"></span></span></th>
-            <th data-sort-key="priority"><span class="th-sort-wrap"><span class="th-label">ความสำคัญ<br>Priority</span><span class="sort-arrow"></span></span></th>
+            <th data-sort-key="supervisor"><span class="th-sort-wrap"><span class="th-label">ผู้ดูแลงาน<br>Supervisor</span><span class="th-controls"><span class="sort-arrow"></span><button type="button" class="th-filter-btn" data-filter-key="supervisor" title="กรองตามผู้ดูแลงาน">⏷</button></span></span><div class="th-filter-panel" data-filter-panel="supervisor"></div></th>
+            <th data-sort-key="assignee"><span class="th-sort-wrap"><span class="th-label">ผู้รับผิดชอบ<br>Assignee</span><span class="th-controls"><span class="sort-arrow"></span><button type="button" class="th-filter-btn" data-filter-key="assignee" title="กรองตามผู้รับผิดชอบ">⏷</button></span></span><div class="th-filter-panel" data-filter-panel="assignee"></div></th>
+            <th data-sort-key="priority"><span class="th-sort-wrap"><span class="th-label">ความสำคัญ<br>Priority</span><span class="th-controls"><span class="sort-arrow"></span><button type="button" class="th-filter-btn" data-filter-key="priority" title="กรองตามความสำคัญ">⏷</button></span></span><div class="th-filter-panel" data-filter-panel="priority"></div></th>
             <th>รูป<br>Photo</th>
             <th>ไฟล์แนบ<br>Attachments</th>
             <th>ความคิดเห็นล่าสุด<br>Latest Comment</th>
-            <th data-sort-key="approval"><span class="th-sort-wrap"><span class="th-label">อนุมัติ<br>Approval</span><span class="sort-arrow"></span></span></th>
+            <th data-sort-key="approval"><span class="th-sort-wrap"><span class="th-label">อนุมัติ<br>Approval</span><span class="th-controls"><span class="sort-arrow"></span><button type="button" class="th-filter-btn" data-filter-key="approval" title="กรองตามการอนุมัติ">⏷</button></span></span><div class="th-filter-panel" data-filter-panel="approval"></div></th>
             <th></th>
           </tr>
         </thead>
@@ -1375,6 +1389,7 @@
         var supName = t.supervisorId ? profileName(t.supervisorId) : '';
         if(t.name.toLowerCase().indexOf(s)===-1 && t.assignee.toLowerCase().indexOf(s)===-1 && taggedNames.toLowerCase().indexOf(s)===-1 && supName.toLowerCase().indexOf(s)===-1) return false;
       }
+      if(!passesColumnFilters(t)) return false;
       return true;
     });
   }
@@ -1451,6 +1466,124 @@
       th.classList.toggle('sort-active', active);
       if(arrow) arrow.textContent = active ? (tableSort.dir==='asc' ? '▲' : '▼') : '';
     });
+  }
+
+  // ---------- Table view — click-to-filter by column (Excel-style checkbox list) ----------
+  // null = no filter active for that column (show all). An array (possibly empty) = only
+  // rows whose value is in the array pass — an empty array means "everything unchecked",
+  // which correctly hides every row until the user re-checks something.
+  var columnFilters = { project:null, status:null, supervisor:null, assignee:null, priority:null, approval:null };
+  var FILTERABLE_COLUMNS = ['project','status','supervisor','assignee','priority','approval'];
+  var APPROVAL_FILTER_LABEL = { none:'(ยังไม่ส่งอนุมัติ)', pending:'รออนุมัติ', approved:'อนุมัติแล้ว', rejected:'ไม่อนุมัติ' };
+  // Returns the display value(s) for a task under a given filterable column — an array because
+  // ผู้รับผิดชอบ (assignee) can carry more than one tagged person.
+  function columnValuesForTask(key, t){
+    switch(key){
+      case 'project': return [t.project || '(ไม่มีโปรเจกต์)'];
+      case 'status': return [isOverdue(t) ? 'เกินกำหนด' : (STATUS_LABEL[t.status] || t.status)];
+      case 'supervisor': return [t.supervisorId ? profileName(t.supervisorId) : '(ไม่ระบุ)'];
+      case 'assignee': return (t.assigneeIds && t.assigneeIds.length) ? t.assigneeIds.map(profileName) : ['(ไม่ระบุ)'];
+      case 'priority': return [PRIORITY_LABEL[t.priority] || t.priority];
+      case 'approval': return [APPROVAL_FILTER_LABEL[t.approvalStatus] || t.approvalStatus];
+      default: return [];
+    }
+  }
+  function uniqueColumnValues(key){
+    var seen = {}, out = [];
+    scopedTasks().forEach(function(t){
+      columnValuesForTask(key, t).forEach(function(v){
+        if(v && !seen[v]){ seen[v] = true; out.push(v); }
+      });
+    });
+    return out.sort(function(a, b){ return String(a).localeCompare(String(b), 'th'); });
+  }
+  function passesColumnFilters(t){
+    for(var i=0; i<FILTERABLE_COLUMNS.length; i++){
+      var key = FILTERABLE_COLUMNS[i];
+      var selected = columnFilters[key];
+      if(selected==null) continue;
+      var vals = columnValuesForTask(key, t);
+      if(!vals.some(function(v){ return selected.indexOf(v)!==-1; })) return false;
+    }
+    return true;
+  }
+  function anyColumnFilterActive(){
+    return FILTERABLE_COLUMNS.some(function(key){ return columnFilters[key]!=null; });
+  }
+  function clearAllColumnFilters(){
+    FILTERABLE_COLUMNS.forEach(function(key){ columnFilters[key] = null; });
+    closeAllColumnFilterPanels();
+    renderTable();
+  }
+  function updateColumnFilterButtonStates(){
+    Array.prototype.forEach.call(document.querySelectorAll('.th-filter-btn'), function(btn){
+      var key = btn.getAttribute('data-filter-key');
+      btn.classList.toggle('filter-active', columnFilters[key]!=null);
+    });
+    var clearBtn = document.getElementById('btnClearColumnFilters');
+    if(clearBtn) clearBtn.style.display = anyColumnFilterActive() ? 'inline-flex' : 'none';
+  }
+  function closeAllColumnFilterPanels(){
+    Array.prototype.forEach.call(document.querySelectorAll('.th-filter-panel'), function(p){ p.classList.remove('show'); });
+  }
+  function toggleColumnFilterPanel(key){
+    var panel = document.querySelector('.th-filter-panel[data-filter-panel="'+key+'"]');
+    if(!panel) return;
+    var wasOpen = panel.classList.contains('show');
+    closeAllColumnFilterPanels();
+    if(!wasOpen){
+      renderColumnFilterPanel(key);
+      panel.classList.add('show');
+    }
+  }
+  function renderColumnFilterPanel(key){
+    var panel = document.querySelector('.th-filter-panel[data-filter-panel="'+key+'"]');
+    if(!panel) return;
+    var values = uniqueColumnValues(key);
+    if(!values.length){
+      panel.innerHTML = '<div class="th-filter-empty">ไม่มีข้อมูลให้กรอง</div>';
+      return;
+    }
+    var selected = columnFilters[key];
+    var allChecked = selected==null;
+    panel.innerHTML =
+      '<label class="th-filter-option th-filter-all"><input type="checkbox" data-filter-all'+(allChecked?' checked':'')+'> (เลือกทั้งหมด)</label>'+
+      '<div class="th-filter-divider"></div>'+
+      values.map(function(v){
+        var checked = allChecked || selected.indexOf(v)>-1;
+        return '<label class="th-filter-option"><input type="checkbox" class="th-filter-item" value="'+escapeHtml(v)+'"'+(checked?' checked':'')+'> '+escapeHtml(v)+'</label>';
+      }).join('');
+    var allCb = panel.querySelector('[data-filter-all]');
+    var itemCbs = panel.querySelectorAll('.th-filter-item');
+    function syncFromItems(){
+      var checkedVals = Array.prototype.filter.call(itemCbs, function(c){ return c.checked; }).map(function(c){ return c.value; });
+      if(checkedVals.length===values.length){
+        columnFilters[key] = null;
+        allCb.checked = true; allCb.indeterminate = false;
+      } else {
+        columnFilters[key] = checkedVals;
+        allCb.checked = false; allCb.indeterminate = checkedVals.length>0;
+      }
+      renderTable();
+    }
+    allCb.addEventListener('click', function(e){
+      e.stopPropagation();
+      Array.prototype.forEach.call(itemCbs, function(c){ c.checked = allCb.checked; });
+      allCb.indeterminate = false;
+      columnFilters[key] = allCb.checked ? null : [];
+      renderTable();
+      var reopened = document.querySelector('.th-filter-panel[data-filter-panel="'+key+'"]');
+      if(reopened) reopened.classList.add('show');
+    });
+    Array.prototype.forEach.call(itemCbs, function(cb){
+      cb.addEventListener('click', function(e){
+        e.stopPropagation();
+        syncFromItems();
+        var reopened = document.querySelector('.th-filter-panel[data-filter-panel="'+key+'"]');
+        if(reopened) reopened.classList.add('show');
+      });
+    });
+    panel.addEventListener('click', function(e){ e.stopPropagation(); });
   }
 
   function refreshProjectFilter(){
@@ -1869,6 +2002,7 @@
     if(heading) heading.textContent = other ? 'งานของ ' + profileName(viewScopeOwnerId) : 'งานทั้งหมด';
 
     updateTableSortHeaderUI();
+    updateColumnFilterButtonStates();
     var list = sortTasksForTable(getFiltered());
     var body = document.getElementById('tableBody');
     var empty = document.getElementById('tableEmpty');
@@ -3102,6 +3236,18 @@
     Array.prototype.forEach.call(document.querySelectorAll('#tableHeadRow th[data-sort-key]'), function(th){
       th.addEventListener('click', function(){ setTableSortKey(th.getAttribute('data-sort-key')); });
     });
+    // Table view — click the ⏷ icon on a header to filter that column (Excel-style checkbox list)
+    Array.prototype.forEach.call(document.querySelectorAll('.th-filter-btn'), function(btn){
+      btn.addEventListener('click', function(e){
+        e.stopPropagation(); // don't also trigger the header's sort click
+        toggleColumnFilterPanel(btn.getAttribute('data-filter-key'));
+      });
+    });
+    document.addEventListener('click', function(e){
+      if(!e.target.closest('.th-filter-panel') && !e.target.closest('.th-filter-btn')) closeAllColumnFilterPanels();
+    });
+    var clearColFiltersBtn = document.getElementById('btnClearColumnFilters');
+    if(clearColFiltersBtn) clearColFiltersBtn.addEventListener('click', clearAllColumnFilters);
 
     document.getElementById('btnAddLog').addEventListener('click', addLogFromInput);
     document.getElementById('logInput').addEventListener('keydown', function(e){
