@@ -168,6 +168,7 @@
   .pill-medium{background:var(--amber-soft);color:var(--amber);}
   .pill-high{background:var(--red-soft);color:var(--red);font-weight:800;}
   .pill-overdue{background:var(--red-soft);color:var(--red);}
+  .pill-sla-ok{background:var(--green-soft);color:var(--green);}
   .pill-pending{background:var(--amber-soft);color:var(--amber);}
   .pill-approved{background:var(--green-soft);color:var(--green);}
   .pill-rejected{background:var(--red-soft);color:var(--red);}
@@ -507,6 +508,7 @@
             <th data-sort-key="start"><span class="th-sort-wrap"><span class="th-label">วันเริ่มงาน<br>Start Date</span><span class="sort-arrow"></span></span></th>
             <th data-sort-key="due"><span class="th-sort-wrap"><span class="th-label">วันคาดว่าจะแล้วเสร็จ<br>Due Date</span><span class="sort-arrow"></span></span></th>
             <th data-sort-key="status"><span class="th-sort-wrap"><span class="th-label">สถานะ<br>Status</span><span class="th-controls"><span class="sort-arrow"></span><button type="button" class="th-filter-btn" data-filter-key="status" title="กรองตามสถานะ">⏷</button></span></span><div class="th-filter-panel" data-filter-panel="status"></div></th>
+            <th data-sort-key="sla"><span class="th-sort-wrap"><span class="th-label">สถานะ SLA<br>SLA Status</span><span class="th-controls"><span class="sort-arrow"></span><button type="button" class="th-filter-btn" data-filter-key="sla" title="กรองตามสถานะ SLA">⏷</button></span></span><div class="th-filter-panel" data-filter-panel="sla"></div></th>
             <th data-sort-key="progress"><span class="th-sort-wrap"><span class="th-label">% ความคืบหน้า<br>Progress</span><span class="sort-arrow"></span></span></th>
             <th data-sort-key="supervisor"><span class="th-sort-wrap"><span class="th-label">ผู้ดูแลงาน<br>Supervisor</span><span class="th-controls"><span class="sort-arrow"></span><button type="button" class="th-filter-btn" data-filter-key="supervisor" title="กรองตามผู้ดูแลงาน">⏷</button></span></span><div class="th-filter-panel" data-filter-panel="supervisor"></div></th>
             <th data-sort-key="assignee"><span class="th-sort-wrap"><span class="th-label">ผู้รับผิดชอบ<br>Assignee</span><span class="th-controls"><span class="sort-arrow"></span><button type="button" class="th-filter-btn" data-filter-key="assignee" title="กรองตามผู้รับผิดชอบ">⏷</button></span></span><div class="th-filter-panel" data-filter-panel="assignee"></div></th>
@@ -868,6 +870,14 @@
       return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];
     });
   }
+  // Normalizes a display name so everyone's name starts with the same capitalization —
+  // trims stray whitespace and uppercases the first character (a no-op for Thai script,
+  // which has no letter case, so Thai names pass through unchanged).
+  function capitalizeName(name){
+    var n = (name || '').trim();
+    if(!n) return n;
+    return n.charAt(0).toUpperCase() + n.slice(1);
+  }
   function daysDiff(dateStr){
     var d = new Date(dateStr+'T00:00:00');
     var t = new Date(todayStr()+'T00:00:00');
@@ -972,6 +982,17 @@
 
   function isOverdue(task){
     return task.status !== 'done' && task.dueDate && daysDiff(task.dueDate) < 0;
+  }
+  // SLA Status — auto-tracked, not stored: derived purely from task status + due date so it
+  // can never drift out of sync. "เกินกำหนด" only when the task isn't done yet AND today is
+  // past the due date; everything else (no due date, done, or due date not yet passed) reads
+  // as "ไม่เกินกำหนด".
+  var SLA_LABEL = { ok: 'ไม่เกินกำหนด', overdue: 'เกินกำหนด' };
+  function slaStatusKey(t){ return isOverdue(t) ? 'overdue' : 'ok'; }
+  function slaStatusCellHtml(t){
+    return isOverdue(t)
+      ? '<span class="pill pill-overdue">⚠ '+SLA_LABEL.overdue+'</span>'
+      : '<span class="pill pill-sla-ok">✓ '+SLA_LABEL.ok+'</span>';
   }
   function isDueSoon(task){
     if(task.status==='done' || !task.dueDate) return false;
@@ -1423,7 +1444,8 @@
   var TABLE_SORT_RANK = {
     status: { todo:0, doing:1, done:2 },
     priority: { low:0, medium:1, high:2 },
-    approval: { none:0, pending:1, approved:2, rejected:3 }
+    approval: { none:0, pending:1, approved:2, rejected:3 },
+    sla: { ok:0, overdue:1 }
   };
   var TABLE_SORT_VALUE = {
     project: function(t){ return t.project || ''; },
@@ -1432,6 +1454,7 @@
     start: function(t){ return t.startDate || ''; },
     due: function(t){ return t.dueDate || ''; },
     status: function(t){ var r = TABLE_SORT_RANK.status[t.status]; return r==null ? 0 : r; },
+    sla: function(t){ return TABLE_SORT_RANK.sla[slaStatusKey(t)]; },
     progress: function(t){ return t.progress || 0; },
     supervisor: function(t){ return t.supervisorId ? profileName(t.supervisorId) : ''; },
     assignee: function(t){ var s = assigneeNamesText(t); return s==='—' ? '' : s; },
@@ -1472,8 +1495,8 @@
   // null = no filter active for that column (show all). An array (possibly empty) = only
   // rows whose value is in the array pass — an empty array means "everything unchecked",
   // which correctly hides every row until the user re-checks something.
-  var columnFilters = { project:null, status:null, supervisor:null, assignee:null, priority:null, approval:null };
-  var FILTERABLE_COLUMNS = ['project','status','supervisor','assignee','priority','approval'];
+  var columnFilters = { project:null, status:null, sla:null, supervisor:null, assignee:null, priority:null, approval:null };
+  var FILTERABLE_COLUMNS = ['project','status','sla','supervisor','assignee','priority','approval'];
   var APPROVAL_FILTER_LABEL = { none:'(ยังไม่ส่งอนุมัติ)', pending:'รออนุมัติ', approved:'อนุมัติแล้ว', rejected:'ไม่อนุมัติ' };
   // Returns the display value(s) for a task under a given filterable column — an array because
   // ผู้รับผิดชอบ (assignee) can carry more than one tagged person.
@@ -1481,6 +1504,7 @@
     switch(key){
       case 'project': return [t.project || '(ไม่มีโปรเจกต์)'];
       case 'status': return [isOverdue(t) ? 'เกินกำหนด' : (STATUS_LABEL[t.status] || t.status)];
+      case 'sla': return [SLA_LABEL[slaStatusKey(t)]];
       case 'supervisor': return [t.supervisorId ? profileName(t.supervisorId) : '(ไม่ระบุ)'];
       case 'assignee': return (t.assigneeIds && t.assigneeIds.length) ? t.assigneeIds.map(profileName) : ['(ไม่ระบุ)'];
       case 'priority': return [PRIORITY_LABEL[t.priority] || t.priority];
@@ -1666,6 +1690,7 @@
       currentProfile = { id: currentUser.id, display_name: currentUser.email, role:'member' };
       showToast('โหลดข้อมูลโปรไฟล์ไม่สำเร็จ ใช้ข้อมูลเบื้องต้นชั่วคราว: '+friendlyErrorMessage(err), 'error');
     }
+    if(currentProfile.display_name) currentProfile.display_name = capitalizeName(currentProfile.display_name);
     var chip = document.getElementById('userChip');
     var roleTxt = currentProfile.role && currentProfile.role!=='member' ? ' ('+currentProfile.role+')' : '';
     chip.textContent = '👤 ' + (currentProfile.display_name || currentUser.email) + roleTxt;
@@ -1684,6 +1709,7 @@
     }
     profilesById = {};
     allProfilesList = res.data || [];
+    allProfilesList.forEach(function(p){ if(p.display_name) p.display_name = capitalizeName(p.display_name); });
     allProfilesList.forEach(function(p){ profilesById[p.id] = p.display_name || p.id.slice(0,8); });
 
     ['fApprover'].forEach(function(selId){
@@ -1833,7 +1859,7 @@
     var overlay = document.getElementById('teamMemberOverlay');
     var profileId = overlay.getAttribute('data-editing-id');
     if(!profileId) return;
-    var name = document.getElementById('tmName').value.trim();
+    var name = capitalizeName(document.getElementById('tmName').value);
     if(!name){ showToast('กรุณากรอกชื่อที่แสดง', 'error'); return; }
     var dept = document.getElementById('tmDept').value.trim();
     var leadId = document.getElementById('tmLead').value;
@@ -2042,6 +2068,7 @@
         '<td class="date-cell">'+displayDate(t.startDate)+'</td>'+
         '<td class="date-cell">'+displayDate(t.dueDate)+'</td>'+
         '<td>'+statusPill+'</td>'+
+        '<td>'+slaStatusCellHtml(t)+'</td>'+
         '<td>'+progressCellHtml(t)+'</td>'+
         '<td>'+supervisorDisplay(t)+'</td>'+
         '<td>'+assigneeDisplay(t)+'</td>'+
@@ -3016,7 +3043,7 @@
     document.getElementById('signupForm').addEventListener('submit', async function(e){
       e.preventDefault();
       setAuthMsg('signupMsg','','');
-      var name = document.getElementById('signupName').value.trim();
+      var name = capitalizeName(document.getElementById('signupName').value);
       var email = document.getElementById('signupEmail').value.trim();
       var password = document.getElementById('signupPassword').value;
       var btn = document.getElementById('btnSignupSubmit');
