@@ -168,10 +168,11 @@
   #pdfViewerFrame{flex:1;border:none;width:100%;}
   .attach-item-name{background:none;border:none;padding:0;cursor:pointer;text-align:left;font-family:inherit;}
 
-  .report-drilldown-box{width:min(640px,92vw);max-height:82vh;background:#fff;border-radius:12px;overflow:hidden;display:flex;flex-direction:column;box-shadow:var(--shadow-lg);}
+  .report-drilldown-inline{background:#fff;border:1px solid var(--border);border-radius:12px;overflow:hidden;display:flex;flex-direction:column;box-shadow:var(--shadow-sm);margin:14px 0 22px;animation:reportDrilldownIn .18s ease;}
+  @keyframes reportDrilldownIn{from{opacity:0;transform:translateY(-6px);}to{opacity:1;transform:translateY(0);}}
   .report-drilldown-head{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:12px 16px;border-bottom:1px solid var(--border);background:#fafbfc;flex:0 0 auto;}
   .report-drilldown-title{font-weight:700;font-size:14.5px;}
-  .report-drilldown-list{flex:1;overflow-y:auto;padding:8px;}
+  .report-drilldown-list{max-height:420px;overflow-y:auto;padding:8px;}
   .report-drilldown-row{display:flex;flex-direction:column;gap:4px;padding:10px 12px;border-radius:8px;cursor:pointer;border-bottom:1px solid var(--border);}
   .report-drilldown-row:last-child{border-bottom:none;}
   .report-drilldown-row:hover{background:var(--gray-soft);}
@@ -668,6 +669,13 @@
       </div>
     </div>
     <div id="reportSummaryContent"></div>
+    <div class="report-drilldown-inline" id="reportDrilldownInline" style="display:none;">
+      <div class="report-drilldown-head">
+        <span class="report-drilldown-title" id="reportDrilldownTitle"></span>
+        <button type="button" class="pdf-viewer-close" id="reportDrilldownClose" title="ปิด">×</button>
+      </div>
+      <div class="report-drilldown-list" id="reportDrilldownList"></div>
+    </div>
     <div class="report-section-title">📈 แนวโน้มงานที่สร้างรายสัปดาห์ <span class="report-section-title-sub">Weekly creation trend</span></div>
     <div id="weeklySummaryList"></div>
   </section>
@@ -859,18 +867,6 @@
       </div>
     </div>
     <iframe id="pdfViewerFrame" src="" title="ดูไฟล์ PDF"></iframe>
-  </div>
-</div>
-
-<!-- REPORT DRILL-DOWN — click any stat card / breakdown row / project-table cell in the
-     summary report to see the actual tasks behind that number -->
-<div class="overlay" id="reportDrilldownOverlay" style="z-index:210;align-items:center;">
-  <div class="report-drilldown-box" id="reportDrilldownBox">
-    <div class="report-drilldown-head">
-      <span class="report-drilldown-title" id="reportDrilldownTitle"></span>
-      <button type="button" class="pdf-viewer-close" id="reportDrilldownClose" title="ปิด">×</button>
-    </div>
-    <div class="report-drilldown-list" id="reportDrilldownList"></div>
   </div>
 </div>
 
@@ -2759,10 +2755,12 @@
         });
       });
     }
-    document.getElementById('reportDrilldownOverlay').classList.add('show');
+    var inlineEl = document.getElementById('reportDrilldownInline');
+    inlineEl.style.display = 'flex';
+    inlineEl.scrollIntoView({behavior:'smooth', block:'nearest'});
   }
   function closeReportDrilldown(){
-    document.getElementById('reportDrilldownOverlay').classList.remove('show');
+    document.getElementById('reportDrilldownInline').style.display = 'none';
   }
 
   function setReportPeriodType(type){
@@ -3879,9 +3877,6 @@
       openReportDrilldown(el.getAttribute('data-report-metric'), el.getAttribute('data-report-project') || null);
     });
     document.getElementById('reportDrilldownClose').addEventListener('click', closeReportDrilldown);
-    document.getElementById('reportDrilldownOverlay').addEventListener('click', function(e){
-      if(e.target.id==='reportDrilldownOverlay') closeReportDrilldown();
-    });
 
     // periodic refresh so due-date highlights & approvals stay current
     setInterval(function(){ if(currentUser) fetchTasks({silent:true}); }, 5*60*1000);
