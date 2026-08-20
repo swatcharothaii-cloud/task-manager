@@ -310,6 +310,40 @@
   .team-lead-picker select{min-width:200px;}
 
   /* ---------- Weekly Summary View ---------- */
+  /* ---------- Weekly / Monthly Summary Report ---------- */
+  .report-toolbar{display:flex;align-items:center;justify-content:space-between;gap:14px;flex-wrap:wrap;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);box-shadow:var(--shadow);padding:12px 16px;margin-bottom:16px;}
+  .report-period-toggle{display:inline-flex;background:var(--gray-soft);border-radius:9px;padding:3px;gap:3px;}
+  .report-period-btn{border:none;background:none;padding:6px 16px;border-radius:7px;font-size:13px;font-weight:700;line-height:1.35;color:var(--text-muted);cursor:pointer;text-align:center;}
+  .report-period-btn-sub{font-size:10px;font-weight:500;color:inherit;opacity:.75;}
+  .report-period-btn.active{background:var(--surface);color:var(--primary-dark);box-shadow:var(--shadow);}
+  .report-period-nav{display:flex;align-items:center;gap:8px;}
+  .btn-icon-only{padding:6px 10px;line-height:1;}
+  .report-period-label{font-weight:700;font-size:14.5px;min-width:190px;text-align:center;}
+  .report-export-actions{display:flex;gap:8px;}
+  .report-scope-note{font-size:12.5px;color:var(--text-muted);margin-bottom:14px;}
+  .report-stat-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;margin-bottom:18px;}
+  .report-stat-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);box-shadow:var(--shadow);padding:14px 16px;}
+  .report-stat-value{font-size:24px;font-weight:800;color:var(--text);line-height:1.2;}
+  .report-stat-label{font-size:12px;color:var(--text-muted);font-weight:600;margin-top:4px;}
+  .report-stat-card.new .report-stat-value{color:var(--primary-dark);}
+  .report-stat-card.done .report-stat-value{color:var(--green);}
+  .report-stat-card.due .report-stat-value{color:var(--amber);}
+  .report-stat-card.overdue .report-stat-value{color:var(--red);}
+  .report-stat-card.next .report-stat-value{color:#7c3aed;}
+  .report-stat-card.rate .report-stat-value{color:var(--primary-dark);}
+  .report-mini-breakdown{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px;margin-bottom:22px;}
+  .report-mini-block{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);box-shadow:var(--shadow);padding:14px 16px;}
+  .report-mini-title{font-size:12.5px;font-weight:700;color:var(--text-muted);margin-bottom:8px;}
+  .report-mini-row{display:flex;justify-content:space-between;align-items:center;font-size:13.5px;padding:4px 0;}
+  .report-mini-row b{font-weight:700;}
+  .report-section-title{font-size:14.5px;font-weight:700;margin:22px 0 12px;display:flex;align-items:baseline;gap:8px;}
+  .report-section-title-sub{font-size:11.5px;font-weight:500;color:var(--text-muted);}
+  .report-table-wrap{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);box-shadow:var(--shadow);overflow-x:auto;margin-bottom:8px;}
+  .report-table{width:100%;border-collapse:collapse;font-size:13px;}
+  .report-table th{text-align:left;padding:10px 12px;background:#fafbfc;border-bottom:1px solid var(--border);color:var(--text-muted);font-weight:700;font-size:11.5px;white-space:nowrap;}
+  .report-table td{padding:10px 12px;border-bottom:1px solid var(--border);white-space:nowrap;}
+  .report-table tr:last-child td{border-bottom:none;}
+  .report-table td:first-child{white-space:normal;}
   .weekly-total{font-size:13.5px;color:var(--text-muted);margin-bottom:14px;}
   .weekly-total b{color:var(--text);}
   .week-row{display:flex;align-items:center;gap:14px;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);box-shadow:var(--shadow);padding:12px 16px;margin-bottom:8px;flex-wrap:wrap;}
@@ -478,7 +512,7 @@
       <button class="tab" data-view="gantt">📊 Gantt</button>
       <button class="tab" data-view="assigned">📌 รับมอบหมาย<span class="tab-badge" id="assignedTabBadge" style="display:none;">0</span></button>
       <button class="tab" data-view="approvals">✅ อนุมัติ<span class="tab-badge" id="approvalTabBadge" style="display:none;">0</span></button>
-      <button class="tab" data-view="weekly">📆 สรุปรายสัปดาห์</button>
+      <button class="tab" data-view="weekly">📊 สรุปรายงาน</button>
       <button class="tab" data-view="myteam">🧑‍💼 ทีมของฉัน<span class="tab-badge" id="myTeamTabBadge" style="display:none;">0</span></button>
       <button class="tab" data-view="team">👥 ทีมงาน</button>
     </div>
@@ -592,8 +626,26 @@
     <div id="approvalsList"></div>
   </section>
 
-  <!-- WEEKLY SUMMARY VIEW -->
+  <!-- WEEKLY / MONTHLY SUMMARY REPORT VIEW -->
   <section class="view" id="view-weekly">
+    <div class="report-toolbar">
+      <div class="report-period-toggle" id="reportPeriodToggle">
+        <button type="button" class="report-period-btn active" data-period-type="week">รายสัปดาห์<br><span class="report-period-btn-sub">Weekly</span></button>
+        <button type="button" class="report-period-btn" data-period-type="month">รายเดือน<br><span class="report-period-btn-sub">Monthly</span></button>
+      </div>
+      <div class="report-period-nav">
+        <button type="button" class="btn btn-sm btn-icon-only" id="btnReportPrev" title="ช่วงก่อนหน้า">◀</button>
+        <span class="report-period-label" id="reportPeriodLabel">—</span>
+        <button type="button" class="btn btn-sm btn-icon-only" id="btnReportNext" title="ช่วงถัดไป">▶</button>
+        <button type="button" class="btn btn-sm" id="btnReportToday">วันนี้</button>
+      </div>
+      <div class="report-export-actions">
+        <button type="button" class="btn btn-sm" id="btnReportExportExcel">⬇ Excel</button>
+        <button type="button" class="btn btn-sm" id="btnReportExportPdf">⬇ PDF</button>
+      </div>
+    </div>
+    <div id="reportSummaryContent"></div>
+    <div class="report-section-title">📈 แนวโน้มงานที่สร้างรายสัปดาห์ <span class="report-section-title-sub">Weekly creation trend</span></div>
     <div id="weeklySummaryList"></div>
   </section>
 
@@ -1320,7 +1372,11 @@
       attachments: (Array.isArray(row.attachments) && row.attachments.length) ? row.attachments.map(function(dataUrl, i){
         return { name: (row.attachment_names && row.attachment_names[i]) || ('ไฟล์แนบ '+(i+1)+'.pdf'), dataUrl: dataUrl };
       }) : [],
-      createdAt: row.created_at
+      createdAt: row.created_at,
+      // Used as a proxy for "when this task last changed" (e.g. "completed this period" =
+      // status done + updated within the period) — not perfectly precise since any edit
+      // bumps it, but there's no dedicated "completed_at" column to draw on.
+      updatedAt: row.updated_at || row.created_at
     };
   }
 
@@ -2024,6 +2080,7 @@
     renderGantt();
     renderAssignedToMe();
     renderApprovals();
+    renderReportSummary();
     renderWeeklySummary();
     renderMyTeamTasks();
     renderNotifications();
@@ -2433,7 +2490,256 @@
     });
   }
 
-  // ---------- Weekly Summary View ----------
+  // ---------- Weekly / Monthly Summary Report ----------
+  // 'week' or 'month' — which granularity the report toolbar is currently showing.
+  var reportPeriodType = 'week';
+  // 0 = the period containing today, -1 = previous period, +1 = next period, etc.
+  var reportPeriodOffset = 0;
+  // Cached result of the last renderReportSummary() computation, reused by the
+  // Excel/PDF export buttons so export always matches exactly what's on screen.
+  var reportLastData = null;
+
+  // Monday-start week (or calendar month) `offset` periods away from the one containing
+  // today. Returns the period's date range plus a Thai-formatted label for the toolbar.
+  function computePeriodRange(type, offset){
+    var now = new Date();
+    if(type==='month'){
+      var base = new Date(now.getFullYear(), now.getMonth()+offset, 1);
+      var start = new Date(base.getFullYear(), base.getMonth(), 1);
+      var end = new Date(base.getFullYear(), base.getMonth()+1, 0);
+      return { start: fmtDate(start), end: fmtDate(end), label: THAI_MONTHS[base.getMonth()]+' '+(base.getFullYear()+543) };
+    }
+    var mon = weekMonday(now);
+    mon.setDate(mon.getDate() + offset*7);
+    return { start: fmtDate(mon), end: fmtDate(addDaysToDateObj(mon,6)), label: weekRangeLabel(mon) };
+  }
+  function addDaysToDateObj(d, n){
+    var copy = new Date(d.getTime());
+    copy.setDate(copy.getDate()+n);
+    return copy;
+  }
+  function inPeriod(dateStr, range){
+    return !!dateStr && dateStr>=range.start && dateStr<=range.end;
+  }
+
+  // Computes every metric the report shows for one list of tasks: totals, this-period
+  // breakdowns, and status/priority splits. Reused for both the overall summary and each
+  // per-project row so the two stay perfectly consistent with each other.
+  function classifyTasksForReport(list, range, nextRange){
+    var total = list.length;
+    var newThis = list.filter(function(t){ return inPeriod(String(t.createdAt||'').slice(0,10), range); }).length;
+    var doneThis = list.filter(function(t){ return t.status==='done' && inPeriod(String(t.updatedAt||'').slice(0,10), range); }).length;
+    var dueThis = list.filter(function(t){ return inPeriod(t.dueDate, range); }).length;
+    var overdueNow = list.filter(isOverdue).length;
+    var startNext = list.filter(function(t){ return inPeriod(t.startDate, nextRange); }).length;
+    var byStatus = { todo:0, doing:0, done:0 };
+    var byPriority = { low:0, medium:0, high:0 };
+    list.forEach(function(t){
+      if(byStatus[t.status]!=null) byStatus[t.status]++;
+      if(byPriority[t.priority]!=null) byPriority[t.priority]++;
+    });
+    var successRate = total>0 ? Math.round(byStatus.done/total*100) : 0;
+    return {
+      total: total, newThis: newThis, doneThis: doneThis, dueThis: dueThis,
+      overdueNow: overdueNow, startNext: startNext,
+      byStatus: byStatus, byPriority: byPriority, successRate: successRate
+    };
+  }
+
+  // Full report dataset for the currently-selected period/scope: the overall summary plus
+  // a per-project breakdown, computed from the same scopedTasks() the Table view uses (so
+  // "my tasks" vs. "browsing a team member's tasks" stays consistent across the app).
+  function computeReportData(){
+    var range = computePeriodRange(reportPeriodType, reportPeriodOffset);
+    var nextRange = computePeriodRange(reportPeriodType, reportPeriodOffset+1);
+    var tasks = scopedTasks();
+    var overall = classifyTasksForReport(tasks, range, nextRange);
+    var byProject = {};
+    tasks.forEach(function(t){
+      var key = t.project || '(ไม่มีโปรเจกต์)';
+      if(!byProject[key]) byProject[key] = [];
+      byProject[key].push(t);
+    });
+    var projectRows = Object.keys(byProject).sort(function(a,b){ return a.localeCompare(b,'th'); }).map(function(name){
+      return { project: name, data: classifyTasksForReport(byProject[name], range, nextRange) };
+    });
+    return { periodType: reportPeriodType, range: range, nextRange: nextRange, overall: overall, projectRows: projectRows, generatedAt: new Date() };
+  }
+
+  function renderReportSummary(){
+    var content = document.getElementById('reportSummaryContent');
+    if(!content) return;
+    var data = computeReportData();
+    reportLastData = data;
+    var typeLabel = reportPeriodType==='week' ? 'สัปดาห์' : 'เดือน';
+    var nextLabel = reportPeriodType==='week' ? 'สัปดาห์หน้า' : 'เดือนหน้า';
+
+    var labelEl = document.getElementById('reportPeriodLabel');
+    if(labelEl) labelEl.textContent = data.range.label;
+
+    var o = data.overall;
+    var statCards = [
+      { label:'งานทั้งหมด', value:o.total, cls:'' },
+      { label:'งานเพิ่มใหม่ ('+typeLabel+'นี้)', value:o.newThis, cls:'new' },
+      { label:'งานที่เสร็จแล้ว ('+typeLabel+'นี้)', value:o.doneThis, cls:'done' },
+      { label:'ครบกำหนดใน'+typeLabel+'นี้', value:o.dueThis, cls:'due' },
+      { label:'เกินกำหนด (ปัจจุบัน)', value:o.overdueNow, cls:'overdue' },
+      { label:'ต้องเริ่มงาน'+nextLabel, value:o.startNext, cls:'next' },
+      { label:'อัตราความสำเร็จ', value:o.successRate+'%', cls:'rate' }
+    ];
+    var statHtml = '<div class="report-stat-grid">' + statCards.map(function(c){
+      return '<div class="report-stat-card '+c.cls+'"><div class="report-stat-value">'+c.value+'</div><div class="report-stat-label">'+escapeHtml(c.label)+'</div></div>';
+    }).join('') + '</div>';
+
+    var breakdownHtml =
+      '<div class="report-mini-breakdown">' +
+        '<div class="report-mini-block"><div class="report-mini-title">แยกตามสถานะ</div>' +
+          '<div class="report-mini-row"><span>ต้องทำ</span><b>'+o.byStatus.todo+'</b></div>' +
+          '<div class="report-mini-row"><span>กำลังทำ</span><b>'+o.byStatus.doing+'</b></div>' +
+          '<div class="report-mini-row"><span>เสร็จแล้ว</span><b>'+o.byStatus.done+'</b></div>' +
+        '</div>' +
+        '<div class="report-mini-block"><div class="report-mini-title">แยกตามความสำคัญ</div>' +
+          '<div class="report-mini-row"><span>🔴 ด่วนมาก</span><b>'+o.byPriority.high+'</b></div>' +
+          '<div class="report-mini-row"><span>🟠 ด่วน</span><b>'+o.byPriority.medium+'</b></div>' +
+          '<div class="report-mini-row"><span>🟢 ตามกำหนด</span><b>'+o.byPriority.low+'</b></div>' +
+        '</div>' +
+      '</div>';
+
+    var projectTableHtml = '';
+    if(data.projectRows.length){
+      projectTableHtml =
+        '<div class="report-section-title">🗂️ แยกตามโปรเจกต์ <span class="report-section-title-sub">Breakdown by project</span></div>' +
+        '<div class="report-table-wrap"><table class="report-table"><thead><tr>'+
+          '<th>โปรเจกต์</th><th>ทั้งหมด</th><th>ใหม่</th><th>เสร็จแล้ว</th><th>ครบกำหนดช่วงนี้</th><th>เกินกำหนด</th><th>เริ่ม'+escapeHtml(nextLabel)+'</th><th>สำเร็จ %</th>'+
+        '</tr></thead><tbody>' +
+        data.projectRows.map(function(r){
+          var d = r.data;
+          var nameCell = r.project==='(ไม่มีโปรเจกต์)'
+            ? '<span style="color:var(--text-muted)">(ไม่มีโปรเจกต์)</span>'
+            : projectBadgeHtml(r.project);
+          return '<tr><td>'+nameCell+'</td>'+
+            '<td>'+d.total+'</td><td>'+d.newThis+'</td><td>'+d.doneThis+'</td><td>'+d.dueThis+'</td><td>'+d.overdueNow+'</td><td>'+d.startNext+'</td><td>'+d.successRate+'%</td></tr>';
+        }).join('') +
+        '</tbody></table></div>';
+    }
+
+    var scopeLabel = isViewingOtherScope() ? 'งานของ '+escapeHtml(profileName(viewScopeOwnerId)) : 'งานของฉัน (เจ้าของ + ที่ถูกแท็กเป็นผู้รับผิดชอบ)';
+    content.innerHTML =
+      '<div class="report-scope-note">ขอบเขตข้อมูล: '+scopeLabel+' • สร้างรายงานเมื่อ '+displayDateTime(data.generatedAt.toISOString())+'</div>' +
+      statHtml + breakdownHtml + projectTableHtml;
+  }
+
+  function setReportPeriodType(type){
+    reportPeriodType = type;
+    reportPeriodOffset = 0;
+    Array.prototype.forEach.call(document.querySelectorAll('.report-period-btn'), function(btn){
+      btn.classList.toggle('active', btn.getAttribute('data-period-type')===type);
+    });
+    renderReportSummary();
+  }
+
+  // ---------- Report export: lazily loads SheetJS / html2canvas+jsPDF from a CDN only
+  // when the user actually clicks Export, so pages that never use the report feature
+  // don't pay for the extra network requests. ----------
+  var loadedScriptPromises = {};
+  function loadExternalScript(src){
+    if(loadedScriptPromises[src]) return loadedScriptPromises[src];
+    loadedScriptPromises[src] = new Promise(function(resolve, reject){
+      var s = document.createElement('script');
+      s.src = src;
+      s.onload = function(){ resolve(); };
+      s.onerror = function(){ delete loadedScriptPromises[src]; reject(new Error('โหลดสคริปต์ไม่สำเร็จ: '+src)); };
+      document.head.appendChild(s);
+    });
+    return loadedScriptPromises[src];
+  }
+
+  function reportFileBaseName(data){
+    var typeLabel = data.periodType==='week' ? 'สัปดาห์' : 'เดือน';
+    return 'สรุปรายงาน-'+typeLabel+'-'+data.range.start+'_ถึง_'+data.range.end;
+  }
+
+  async function exportReportExcel(){
+    var data = reportLastData || computeReportData();
+    await withLoading(document.getElementById('btnReportExportExcel'), 'กำลังสร้างไฟล์...', async function(){
+      await loadExternalScript('https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js');
+      var typeLabel = data.periodType==='week' ? 'สัปดาห์' : 'เดือน';
+      var nextLabel = data.periodType==='week' ? 'สัปดาห์หน้า' : 'เดือนหน้า';
+      var o = data.overall;
+      var overviewRows = [
+        ['สรุปรายงาน'+typeLabel, data.range.label],
+        ['สร้างรายงานเมื่อ', displayDateTime(data.generatedAt.toISOString())],
+        [],
+        ['หัวข้อ', 'จำนวน'],
+        ['งานทั้งหมด', o.total],
+        ['งานเพิ่มใหม่ ('+typeLabel+'นี้)', o.newThis],
+        ['งานที่เสร็จแล้ว ('+typeLabel+'นี้)', o.doneThis],
+        ['ครบกำหนดใน'+typeLabel+'นี้', o.dueThis],
+        ['เกินกำหนด (ปัจจุบัน)', o.overdueNow],
+        ['ต้องเริ่มงาน'+nextLabel, o.startNext],
+        ['อัตราความสำเร็จ (%)', o.successRate],
+        [],
+        ['แยกตามสถานะ', ''],
+        ['ต้องทำ', o.byStatus.todo],
+        ['กำลังทำ', o.byStatus.doing],
+        ['เสร็จแล้ว', o.byStatus.done],
+        [],
+        ['แยกตามความสำคัญ', ''],
+        ['ด่วนมาก', o.byPriority.high],
+        ['ด่วน', o.byPriority.medium],
+        ['ตามกำหนด', o.byPriority.low]
+      ];
+      var projectHeader = ['โปรเจกต์','ทั้งหมด','ใหม่','เสร็จแล้ว','ครบกำหนดช่วงนี้','เกินกำหนด','เริ่ม'+nextLabel,'สำเร็จ %'];
+      var projectRows = data.projectRows.map(function(r){
+        var d = r.data;
+        return [r.project, d.total, d.newThis, d.doneThis, d.dueThis, d.overdueNow, d.startNext, d.successRate];
+      });
+      var wb = XLSX.utils.book_new();
+      var wsOverview = XLSX.utils.aoa_to_sheet(overviewRows);
+      wsOverview['!cols'] = [{wch:26},{wch:16}];
+      XLSX.utils.book_append_sheet(wb, wsOverview, 'ภาพรวม');
+      var wsProject = XLSX.utils.aoa_to_sheet([projectHeader].concat(projectRows));
+      wsProject['!cols'] = [{wch:20},{wch:10},{wch:8},{wch:10},{wch:16},{wch:12},{wch:14},{wch:10}];
+      XLSX.utils.book_append_sheet(wb, wsProject, 'แยกตามโปรเจกต์');
+      XLSX.writeFile(wb, reportFileBaseName(data)+'.xlsx');
+      showToast('ดาวน์โหลด Excel แล้ว');
+    });
+  }
+
+  async function exportReportPdf(){
+    var data = reportLastData || computeReportData();
+    await withLoading(document.getElementById('btnReportExportPdf'), 'กำลังสร้างไฟล์...', async function(){
+      await loadExternalScript('https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js');
+      await loadExternalScript('https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js');
+      // Rasterizes the already-rendered (browser-drawn, so Thai text is guaranteed
+      // correct) report content rather than drawing text into the PDF directly — jsPDF's
+      // built-in fonts have no Thai glyphs, so this sidesteps that entirely.
+      var source = document.getElementById('reportSummaryContent');
+      var canvas = await html2canvas(source, { scale: 2, backgroundColor: '#ffffff' });
+      var jsPDF = window.jspdf.jsPDF;
+      var pdf = new jsPDF({ orientation:'portrait', unit:'pt', format:'a4' });
+      var pageW = pdf.internal.pageSize.getWidth();
+      var pageH = pdf.internal.pageSize.getHeight();
+      var margin = 24;
+      var imgW = pageW - margin*2;
+      var imgH = canvas.height * (imgW / canvas.width);
+      var imgData = canvas.toDataURL('image/png');
+      var heightLeft = imgH;
+      var positionY = margin;
+      pdf.addImage(imgData, 'PNG', margin, positionY, imgW, imgH);
+      heightLeft -= (pageH - margin*2);
+      while(heightLeft > 0){
+        pdf.addPage();
+        positionY = margin - (imgH - heightLeft);
+        pdf.addImage(imgData, 'PNG', margin, positionY, imgW, imgH);
+        heightLeft -= (pageH - margin*2);
+      }
+      pdf.save(reportFileBaseName(data)+'.pdf');
+      showToast('ดาวน์โหลด PDF แล้ว');
+    });
+  }
+
+  // ---------- Weekly Summary View (creation-trend chart shown under the report) ----------
   function renderWeeklySummary(){
     var el = document.getElementById('weeklySummaryList');
     if(!el) return;
@@ -3398,6 +3704,35 @@
     document.getElementById('calToday').addEventListener('click', function(){
       var n = new Date(); calYear=n.getFullYear(); calMonth=n.getMonth();
       renderCalendar();
+    });
+
+    // Report (weekly/monthly summary) nav
+    Array.prototype.forEach.call(document.querySelectorAll('.report-period-btn'), function(btn){
+      btn.addEventListener('click', function(){ setReportPeriodType(btn.getAttribute('data-period-type')); });
+    });
+    document.getElementById('btnReportPrev').addEventListener('click', function(){
+      reportPeriodOffset -= 1;
+      renderReportSummary();
+    });
+    document.getElementById('btnReportNext').addEventListener('click', function(){
+      reportPeriodOffset += 1;
+      renderReportSummary();
+    });
+    document.getElementById('btnReportToday').addEventListener('click', function(){
+      reportPeriodOffset = 0;
+      renderReportSummary();
+    });
+    document.getElementById('btnReportExportExcel').addEventListener('click', function(){
+      exportReportExcel().catch(function(err){
+        console.error(err);
+        showToast('สร้างไฟล์ Excel ไม่สำเร็จ: '+friendlyErrorMessage(err), 'error');
+      });
+    });
+    document.getElementById('btnReportExportPdf').addEventListener('click', function(){
+      exportReportPdf().catch(function(err){
+        console.error(err);
+        showToast('สร้างไฟล์ PDF ไม่สำเร็จ: '+friendlyErrorMessage(err), 'error');
+      });
     });
 
     // periodic refresh so due-date highlights & approvals stay current
