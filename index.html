@@ -217,8 +217,8 @@
   .view-heading{display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;flex-wrap:wrap;gap:10px;}
   .view-heading h2{margin:0;font-size:19px;}
   .view-heading .sub{font-size:13px;color:var(--text-muted);}
-  #tableScopeSelect{border:1px solid var(--border);border-radius:7px;padding:6px 10px;font-size:13.5px;color:var(--text);background:var(--surface);}
-  #tableScopeSelect.other-scope{border-color:var(--primary);color:var(--primary-dark);background:var(--primary-soft);font-weight:600;}
+  #tableScopeSelect,#reportScopeSelect{border:1px solid var(--border);border-radius:7px;padding:6px 10px;font-size:13.5px;color:var(--text);background:var(--surface);}
+  #tableScopeSelect.other-scope,#reportScopeSelect.other-scope{border-color:var(--primary);color:var(--primary-dark);background:var(--primary-soft);font-weight:600;}
   .project-badge{display:inline-block;padding:2px 7px;border-radius:6px;font-size:10.5px;font-weight:700;white-space:normal;overflow-wrap:break-word;}
   .multi-select-box{border:1px solid var(--border);border-radius:8px;max-height:140px;overflow-y:auto;padding:4px;background:#fff;}
   .multi-select-box .ms-empty{padding:8px;font-size:12.5px;color:var(--text-muted);}
@@ -629,6 +629,9 @@
   <!-- WEEKLY / MONTHLY SUMMARY REPORT VIEW -->
   <section class="view" id="view-weekly">
     <div class="report-toolbar">
+      <div class="report-scope-group">
+        <select id="reportScopeSelect" title="เลือกดูรายงานของ"></select>
+      </div>
       <div class="report-period-toggle" id="reportPeriodToggle">
         <button type="button" class="report-period-btn active" data-period-type="week">รายสัปดาห์<br><span class="report-period-btn-sub">Weekly</span></button>
         <button type="button" class="report-period-btn" data-period-type="month">รายเดือน<br><span class="report-period-btn-sub">Monthly</span></button>
@@ -1856,16 +1859,21 @@
     renderTeam();
   }
 
-  // ---------- Table view scope switcher (view my own tasks, or a team member's, in the same table) ----------
+  // ---------- Scope switcher (view my own tasks, or a team member's) — shared between the
+  // Table view and the Report view, so picking a person in either place keeps both in sync. ----------
   function populateTableScopeSelect(){
-    var sel = document.getElementById('tableScopeSelect');
-    if(!sel) return;
     var others = allProfilesList.filter(function(p){ return p.id!==currentUser.id; });
     var meLabel = 'ฉัน (' + (currentProfile ? (currentProfile.display_name||currentUser.email) : currentUser.email) + ')';
-    sel.innerHTML = '<option value="">'+escapeHtml(meLabel)+'</option>' + others.map(function(p){
+    var optionsHtml = '<option value="">'+escapeHtml(meLabel)+'</option>' + others.map(function(p){
       return '<option value="'+p.id+'">งานของ '+escapeHtml(p.display_name||p.id.slice(0,8))+'</option>';
     }).join('');
-    sel.value = (viewScopeOwnerId && others.some(function(p){return p.id===viewScopeOwnerId;})) ? viewScopeOwnerId : '';
+    var scopeValue = (viewScopeOwnerId && others.some(function(p){return p.id===viewScopeOwnerId;})) ? viewScopeOwnerId : '';
+    ['tableScopeSelect','reportScopeSelect'].forEach(function(id){
+      var sel = document.getElementById(id);
+      if(!sel) return;
+      sel.innerHTML = optionsHtml;
+      sel.value = scopeValue;
+    });
   }
 
   function setTableScope(profileId){
@@ -1873,8 +1881,10 @@
     filters.project = '';
     var fProject = document.getElementById('fProject');
     if(fProject) fProject.value = '';
-    var sel = document.getElementById('tableScopeSelect');
-    if(sel) sel.value = viewScopeOwnerId || '';
+    ['tableScopeSelect','reportScopeSelect'].forEach(function(id){
+      var sel = document.getElementById(id);
+      if(sel) sel.value = viewScopeOwnerId || '';
+    });
     renderAll();
   }
 
@@ -2569,6 +2579,8 @@
   function renderReportSummary(){
     var content = document.getElementById('reportSummaryContent');
     if(!content) return;
+    var scopeSel = document.getElementById('reportScopeSelect');
+    if(scopeSel) scopeSel.classList.toggle('other-scope', isViewingOtherScope());
     var data = computeReportData();
     reportLastData = data;
     var typeLabel = reportPeriodType==='week' ? 'สัปดาห์' : 'เดือน';
@@ -3482,11 +3494,12 @@
       if(e.target.id==='memberTasksOverlay') closeMemberTasksModal();
     });
 
-    // Table view scope switcher (view my tasks vs a team member's, in the full table)
-    var scopeSel = document.getElementById('tableScopeSelect');
-    if(scopeSel){
-      scopeSel.addEventListener('change', function(e){ setTableScope(e.target.value); });
-    }
+    // Scope switcher (view my tasks vs a team member's) — same control on both the Table
+    // view and the Report view, kept in sync by setTableScope().
+    ['tableScopeSelect','reportScopeSelect'].forEach(function(id){
+      var sel = document.getElementById(id);
+      if(sel) sel.addEventListener('change', function(e){ setTableScope(e.target.value); });
+    });
 
     // Filters
     document.getElementById('fSearch').addEventListener('input', function(e){ filters.search=e.target.value; renderAll(); });
