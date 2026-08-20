@@ -168,6 +168,17 @@
   #pdfViewerFrame{flex:1;border:none;width:100%;}
   .attach-item-name{background:none;border:none;padding:0;cursor:pointer;text-align:left;font-family:inherit;}
 
+  .report-drilldown-box{width:min(640px,92vw);max-height:82vh;background:#fff;border-radius:12px;overflow:hidden;display:flex;flex-direction:column;box-shadow:var(--shadow-lg);}
+  .report-drilldown-head{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:12px 16px;border-bottom:1px solid var(--border);background:#fafbfc;flex:0 0 auto;}
+  .report-drilldown-title{font-weight:700;font-size:14.5px;}
+  .report-drilldown-list{flex:1;overflow-y:auto;padding:8px;}
+  .report-drilldown-row{display:flex;flex-direction:column;gap:4px;padding:10px 12px;border-radius:8px;cursor:pointer;border-bottom:1px solid var(--border);}
+  .report-drilldown-row:last-child{border-bottom:none;}
+  .report-drilldown-row:hover{background:var(--gray-soft);}
+  .report-drilldown-row-main{display:flex;align-items:center;gap:8px;flex-wrap:wrap;}
+  .report-drilldown-name{font-weight:600;font-size:13.5px;}
+  .report-drilldown-row-meta{display:flex;align-items:center;gap:10px;font-size:12px;color:var(--text-muted);}
+
   .pill{display:inline-flex;align-items:center;gap:5px;padding:3px 10px;border-radius:100px;font-size:12px;font-weight:700;white-space:nowrap;}
   /* Table cells are width-constrained for the no-scroll layout — pills there run a size
      smaller and are allowed to wrap their label instead of forcing the column wider. */
@@ -331,11 +342,20 @@
   .report-stat-card.overdue .report-stat-value{color:var(--red);}
   .report-stat-card.next .report-stat-value{color:#7c3aed;}
   .report-stat-card.rate .report-stat-value{color:var(--primary-dark);}
+  /* Clickable stat cards / breakdown rows / project-table cells drill into the matching
+     task list — a subtle hover + pointer cursor is the only affordance needed since they
+     sit right next to their non-clickable sibling (the "อัตราความสำเร็จ" card). */
+  .report-stat-card.clickable{cursor:pointer;transition:box-shadow .15s,border-color .15s;}
+  .report-stat-card.clickable:hover{box-shadow:var(--shadow-lg);border-color:var(--primary);}
   .report-mini-breakdown{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px;margin-bottom:22px;}
   .report-mini-block{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);box-shadow:var(--shadow);padding:14px 16px;}
   .report-mini-title{font-size:12.5px;font-weight:700;color:var(--text-muted);margin-bottom:8px;}
-  .report-mini-row{display:flex;justify-content:space-between;align-items:center;font-size:13.5px;padding:4px 0;}
+  .report-mini-row{display:flex;justify-content:space-between;align-items:center;font-size:13.5px;padding:4px 0;border-radius:6px;}
   .report-mini-row b{font-weight:700;}
+  .report-mini-row.clickable{cursor:pointer;margin:0 -6px;padding:4px 6px;}
+  .report-mini-row.clickable:hover{background:var(--gray-soft);}
+  .report-table td.clickable{cursor:pointer;}
+  .report-table td.clickable:hover{background:var(--primary-soft);color:var(--primary-dark);font-weight:700;}
   .report-section-title{font-size:14.5px;font-weight:700;margin:22px 0 12px;display:flex;align-items:baseline;gap:8px;}
   .report-section-title-sub{font-size:11.5px;font-weight:500;color:var(--text-muted);}
   .report-table-wrap{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);box-shadow:var(--shadow);overflow-x:auto;margin-bottom:8px;}
@@ -839,6 +859,18 @@
       </div>
     </div>
     <iframe id="pdfViewerFrame" src="" title="ดูไฟล์ PDF"></iframe>
+  </div>
+</div>
+
+<!-- REPORT DRILL-DOWN — click any stat card / breakdown row / project-table cell in the
+     summary report to see the actual tasks behind that number -->
+<div class="overlay" id="reportDrilldownOverlay" style="z-index:210;align-items:center;">
+  <div class="report-drilldown-box" id="reportDrilldownBox">
+    <div class="report-drilldown-head">
+      <span class="report-drilldown-title" id="reportDrilldownTitle"></span>
+      <button type="button" class="pdf-viewer-close" id="reportDrilldownClose" title="ปิด">×</button>
+    </div>
+    <div class="report-drilldown-list" id="reportDrilldownList"></div>
   </div>
 </div>
 
@@ -2532,28 +2564,70 @@
     return !!dateStr && dateStr>=range.start && dateStr<=range.end;
   }
 
+  // Single source of truth for every report metric's definition — used both to COUNT
+  // (classifyTasksForReport, for the cards/table) and to LIST the actual matching tasks
+  // (reportTasksForMetric, for click-to-drill-down), so the two can never disagree.
+  var REPORT_METRIC_FILTER = {
+    total: function(){ return true; },
+    newThis: function(t, range){ return inPeriod(String(t.createdAt||'').slice(0,10), range); },
+    doneThis: function(t, range){ return t.status==='done' && inPeriod(String(t.updatedAt||'').slice(0,10), range); },
+    dueThis: function(t, range){ return inPeriod(t.dueDate, range); },
+    overdueNow: function(t){ return isOverdue(t); },
+    startNext: function(t, range, nextRange){ return inPeriod(t.startDate, nextRange); },
+    statusTodo: function(t){ return t.status==='todo'; },
+    statusDoing: function(t){ return t.status==='doing'; },
+    statusDone: function(t){ return t.status==='done'; },
+    priorityHigh: function(t){ return t.priority==='high'; },
+    priorityMedium: function(t){ return t.priority==='medium'; },
+    priorityLow: function(t){ return t.priority==='low'; }
+  };
+  var REPORT_METRIC_LABEL = {
+    total: 'งานทั้งหมด',
+    newThis: 'งานเพิ่มใหม่',
+    doneThis: 'งานที่เสร็จแล้ว',
+    dueThis: 'งานที่ครบกำหนด',
+    overdueNow: 'งานที่เกินกำหนด',
+    startNext: 'งานที่ต้องเริ่ม',
+    statusTodo: 'สถานะ: ต้องทำ',
+    statusDoing: 'สถานะ: กำลังทำ',
+    statusDone: 'สถานะ: เสร็จแล้ว',
+    priorityHigh: 'ความสำคัญ: ด่วนมาก',
+    priorityMedium: 'ความสำคัญ: ด่วน',
+    priorityLow: 'ความสำคัญ: ตามกำหนด'
+  };
+
   // Computes every metric the report shows for one list of tasks: totals, this-period
   // breakdowns, and status/priority splits. Reused for both the overall summary and each
   // per-project row so the two stay perfectly consistent with each other.
   function classifyTasksForReport(list, range, nextRange){
-    var total = list.length;
-    var newThis = list.filter(function(t){ return inPeriod(String(t.createdAt||'').slice(0,10), range); }).length;
-    var doneThis = list.filter(function(t){ return t.status==='done' && inPeriod(String(t.updatedAt||'').slice(0,10), range); }).length;
-    var dueThis = list.filter(function(t){ return inPeriod(t.dueDate, range); }).length;
-    var overdueNow = list.filter(isOverdue).length;
-    var startNext = list.filter(function(t){ return inPeriod(t.startDate, nextRange); }).length;
+    function count(key){ return list.filter(function(t){ return REPORT_METRIC_FILTER[key](t, range, nextRange); }).length; }
     var byStatus = { todo:0, doing:0, done:0 };
     var byPriority = { low:0, medium:0, high:0 };
     list.forEach(function(t){
       if(byStatus[t.status]!=null) byStatus[t.status]++;
       if(byPriority[t.priority]!=null) byPriority[t.priority]++;
     });
+    var total = list.length;
     var successRate = total>0 ? Math.round(byStatus.done/total*100) : 0;
     return {
-      total: total, newThis: newThis, doneThis: doneThis, dueThis: dueThis,
-      overdueNow: overdueNow, startNext: startNext,
+      total: total, newThis: count('newThis'), doneThis: count('doneThis'), dueThis: count('dueThis'),
+      overdueNow: count('overdueNow'), startNext: count('startNext'),
       byStatus: byStatus, byPriority: byPriority, successRate: successRate
     };
+  }
+
+  // The actual tasks behind one metric (optionally narrowed to one project) — powers
+  // click-to-drill-down on every stat card, breakdown row, and project-table cell.
+  function reportTasksForMetric(metricKey, projectFilter){
+    var range = reportLastData ? reportLastData.range : computePeriodRange(reportPeriodType, reportPeriodOffset);
+    var nextRange = reportLastData ? reportLastData.nextRange : computePeriodRange(reportPeriodType, reportPeriodOffset+1);
+    var list = scopedTasks();
+    if(projectFilter!=null){
+      list = list.filter(function(t){ return (t.project||'(ไม่มีโปรเจกต์)')===projectFilter; });
+    }
+    var filterFn = REPORT_METRIC_FILTER[metricKey];
+    if(!filterFn) return list;
+    return list.filter(function(t){ return filterFn(t, range, nextRange); });
   }
 
   // Full report dataset for the currently-selected period/scope: the overall summary plus
@@ -2590,30 +2664,38 @@
     if(labelEl) labelEl.textContent = data.range.label;
 
     var o = data.overall;
+    // Every stat card (except "อัตราความสำเร็จ", a derived percentage rather than a task
+    // subset) carries data-report-metric so clicking it drills into the matching task list —
+    // see the delegated click handler wired near reportSummaryContent's other listeners.
     var statCards = [
-      { label:'งานทั้งหมด', value:o.total, cls:'' },
-      { label:'งานเพิ่มใหม่ ('+typeLabel+'นี้)', value:o.newThis, cls:'new' },
-      { label:'งานที่เสร็จแล้ว ('+typeLabel+'นี้)', value:o.doneThis, cls:'done' },
-      { label:'ครบกำหนดใน'+typeLabel+'นี้', value:o.dueThis, cls:'due' },
-      { label:'เกินกำหนด (ปัจจุบัน)', value:o.overdueNow, cls:'overdue' },
-      { label:'ต้องเริ่มงาน'+nextLabel, value:o.startNext, cls:'next' },
-      { label:'อัตราความสำเร็จ', value:o.successRate+'%', cls:'rate' }
+      { label:'งานทั้งหมด', value:o.total, cls:'', metric:'total' },
+      { label:'งานเพิ่มใหม่ ('+typeLabel+'นี้)', value:o.newThis, cls:'new', metric:'newThis' },
+      { label:'งานที่เสร็จแล้ว ('+typeLabel+'นี้)', value:o.doneThis, cls:'done', metric:'doneThis' },
+      { label:'ครบกำหนดใน'+typeLabel+'นี้', value:o.dueThis, cls:'due', metric:'dueThis' },
+      { label:'เกินกำหนด (ปัจจุบัน)', value:o.overdueNow, cls:'overdue', metric:'overdueNow' },
+      { label:'ต้องเริ่มงาน'+nextLabel, value:o.startNext, cls:'next', metric:'startNext' },
+      { label:'อัตราความสำเร็จ', value:o.successRate+'%', cls:'rate', metric:null }
     ];
     var statHtml = '<div class="report-stat-grid">' + statCards.map(function(c){
-      return '<div class="report-stat-card '+c.cls+'"><div class="report-stat-value">'+c.value+'</div><div class="report-stat-label">'+escapeHtml(c.label)+'</div></div>';
+      var clickable = c.metric ? ' clickable" data-report-metric="'+c.metric+'"' : '"';
+      return '<div class="report-stat-card '+c.cls+clickable+'><div class="report-stat-value">'+c.value+'</div><div class="report-stat-label">'+escapeHtml(c.label)+'</div></div>';
     }).join('') + '</div>';
 
+    function miniRow(label, value, metric){
+      return '<div class="report-mini-row clickable" data-report-metric="'+metric+'"><span>'+label+'</span><b>'+value+'</b></div>';
+    }
     var breakdownHtml =
       '<div class="report-mini-breakdown">' +
         '<div class="report-mini-block"><div class="report-mini-title">แยกตามสถานะ</div>' +
-          '<div class="report-mini-row"><span>ต้องทำ</span><b>'+o.byStatus.todo+'</b></div>' +
-          '<div class="report-mini-row"><span>กำลังทำ</span><b>'+o.byStatus.doing+'</b></div>' +
-          '<div class="report-mini-row"><span>เสร็จแล้ว</span><b>'+o.byStatus.done+'</b></div>' +
+          miniRow('ต้องทำ', o.byStatus.todo, 'statusTodo') +
+          miniRow('กำลังทำ', o.byStatus.doing, 'statusDoing') +
+          miniRow('เสร็จแล้ว', o.byStatus.done, 'statusDone') +
+          miniRow('⚠ เกินกำหนด', o.overdueNow, 'overdueNow') +
         '</div>' +
         '<div class="report-mini-block"><div class="report-mini-title">แยกตามความสำคัญ</div>' +
-          '<div class="report-mini-row"><span>🔴 ด่วนมาก</span><b>'+o.byPriority.high+'</b></div>' +
-          '<div class="report-mini-row"><span>🟠 ด่วน</span><b>'+o.byPriority.medium+'</b></div>' +
-          '<div class="report-mini-row"><span>🟢 ตามกำหนด</span><b>'+o.byPriority.low+'</b></div>' +
+          miniRow('🔴 ด่วนมาก', o.byPriority.high, 'priorityHigh') +
+          miniRow('🟠 ด่วน', o.byPriority.medium, 'priorityMedium') +
+          miniRow('🟢 ตามกำหนด', o.byPriority.low, 'priorityLow') +
         '</div>' +
       '</div>';
 
@@ -2629,8 +2711,13 @@
           var nameCell = r.project==='(ไม่มีโปรเจกต์)'
             ? '<span style="color:var(--text-muted)">(ไม่มีโปรเจกต์)</span>'
             : projectBadgeHtml(r.project);
+          var pj = escapeHtml(r.project).replace(/"/g,'&quot;');
+          function td(value, metric){
+            return '<td class="clickable" data-report-metric="'+metric+'" data-report-project="'+pj+'">'+value+'</td>';
+          }
           return '<tr><td>'+nameCell+'</td>'+
-            '<td>'+d.total+'</td><td>'+d.newThis+'</td><td>'+d.doneThis+'</td><td>'+d.dueThis+'</td><td>'+d.overdueNow+'</td><td>'+d.startNext+'</td><td>'+d.successRate+'%</td></tr>';
+            td(d.total,'total')+td(d.newThis,'newThis')+td(d.doneThis,'doneThis')+td(d.dueThis,'dueThis')+td(d.overdueNow,'overdueNow')+td(d.startNext,'startNext')+
+            '<td>'+d.successRate+'%</td></tr>';
         }).join('') +
         '</tbody></table></div>';
     }
@@ -2639,6 +2726,43 @@
     content.innerHTML =
       '<div class="report-scope-note">ขอบเขตข้อมูล: '+scopeLabel+' • สร้างรายงานเมื่อ '+displayDateTime(data.generatedAt.toISOString())+'</div>' +
       statHtml + breakdownHtml + projectTableHtml;
+  }
+
+  // Opens the drill-down list for one report metric (optionally narrowed to a project) —
+  // shows the actual matching tasks so a number on the report is never a dead end.
+  function openReportDrilldown(metricKey, projectFilter){
+    var tasks = reportTasksForMetric(metricKey, projectFilter);
+    var titleParts = [];
+    if(REPORT_METRIC_LABEL[metricKey]) titleParts.push(REPORT_METRIC_LABEL[metricKey]);
+    if(projectFilter) titleParts.push(projectFilter==='(ไม่มีโปรเจกต์)' ? '(ไม่มีโปรเจกต์)' : 'โปรเจกต์ '+projectFilter);
+    document.getElementById('reportDrilldownTitle').textContent = (titleParts.join(' • ') || 'รายการงาน') + ' ('+tasks.length+' รายการ)';
+    var listEl = document.getElementById('reportDrilldownList');
+    if(tasks.length===0){
+      listEl.innerHTML = '<div class="empty-state"><div class="big">📭</div>ไม่มีงานในหมวดนี้</div>';
+    } else {
+      listEl.innerHTML = tasks.slice().sort(defaultTaskCompare).map(function(t){
+        var overdue = isOverdue(t);
+        var statusPill = overdue
+          ? '<span class="pill pill-overdue">⚠ เกินกำหนด</span>'
+          : '<span class="pill pill-'+t.status+'">'+STATUS_LABEL[t.status]+'</span>';
+        return '<div class="report-drilldown-row" data-id="'+t.id+'">'+
+          '<div class="report-drilldown-row-main">'+projectBadgeHtml(t.project)+'<span class="report-drilldown-name">'+escapeHtml(t.name)+'</span></div>'+
+          '<div class="report-drilldown-row-meta">'+statusPill+'<span>กำหนด: '+displayDate(t.dueDate)+'</span></div>'+
+        '</div>';
+      }).join('');
+      Array.prototype.forEach.call(listEl.querySelectorAll('.report-drilldown-row'), function(row){
+        row.addEventListener('click', function(){
+          var id = row.getAttribute('data-id');
+          var t = allTasks.find(function(x){ return x.id===id; });
+          closeReportDrilldown();
+          openModal(id, {focusLog:true, readOnly: !t || !canEditTaskRow(t)});
+        });
+      });
+    }
+    document.getElementById('reportDrilldownOverlay').classList.add('show');
+  }
+  function closeReportDrilldown(){
+    document.getElementById('reportDrilldownOverlay').classList.remove('show');
   }
 
   function setReportPeriodType(type){
@@ -3746,6 +3870,17 @@
         console.error(err);
         showToast('สร้างไฟล์ PDF ไม่สำเร็จ: '+friendlyErrorMessage(err), 'error');
       });
+    });
+    // Click-to-drill-down: delegated on the container since its content is replaced by
+    // innerHTML on every render, but the container element itself never changes.
+    document.getElementById('reportSummaryContent').addEventListener('click', function(e){
+      var el = e.target.closest('[data-report-metric]');
+      if(!el) return;
+      openReportDrilldown(el.getAttribute('data-report-metric'), el.getAttribute('data-report-project') || null);
+    });
+    document.getElementById('reportDrilldownClose').addEventListener('click', closeReportDrilldown);
+    document.getElementById('reportDrilldownOverlay').addEventListener('click', function(e){
+      if(e.target.id==='reportDrilldownOverlay') closeReportDrilldown();
     });
 
     // periodic refresh so due-date highlights & approvals stay current
